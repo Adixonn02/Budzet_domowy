@@ -1,0 +1,1552 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nasz budżet</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2d6b5a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Budżet">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+:root{
+  --bg:#f4f3ee;--card:#ffffff;--text:#1d2220;--muted:#6b726e;--line:#e3e1da;
+  --primary:#2d6b5a;--primary-ink:#ffffff;--danger:#b23b2a;--ok:#2b7a4b;
+  --bar:#e7e5de;--soft:#e4efea;--warnbg:#fbefd6;--warn:#8a5a00;color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#121614;--card:#1b211f;--text:#e8ebe9;--muted:#98a29e;--line:#2b3430;
+    --primary:#6fb9a3;--primary-ink:#0d1714;--danger:#f08170;--ok:#7fd1a0;
+    --bar:#2b3430;--soft:#22332d;--warnbg:#3a2e14;--warn:#f0c27a;color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);overflow-wrap:anywhere}
+.top{position:sticky;top:0;z-index:5;background:var(--card);border-bottom:1px solid var(--line)}
+.topbar{max-width:980px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap}
+.brand{font-weight:700;font-size:18px;margin-right:auto}
+.sync{font-size:12px;font-weight:500;color:var(--muted);margin-left:10px}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav a{padding:7px 12px;border-radius:999px;color:var(--muted);text-decoration:none;font-weight:500;white-space:nowrap}
+nav a.active{background:var(--soft);color:var(--primary)}
+main{max-width:980px;margin:0 auto;padding:16px;display:grid;gap:16px}
+h2{font-size:18px;margin:0 0 6px}
+h3{font-size:16px;margin:0}
+p{margin:6px 0}
+.muted{color:var(--muted);font-size:13px}
+.ok{color:var(--ok)}
+.center{text-align:center}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.head h2{margin:0}
+.row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 12px;padding:10px 0;border-top:1px solid var(--line)}
+.grow{flex:1 1 200px;min-width:0;display:flex;flex-direction:column}
+.right{display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right}
+.icons{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.total{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;border-top:2px solid var(--line);margin-top:6px;padding-top:10px}
+.cat{flex:1;min-width:0;padding:4px 0}
+.rowline{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.bar{height:8px;background:var(--bar);border-radius:99px;overflow:hidden;margin:6px 0}
+.bar i{display:block;height:100%;background:var(--primary)}
+.bar.over i{background:var(--danger)}
+.settle{font-size:17px;padding:10px 12px;border-radius:10px;background:var(--soft)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:2px}
+.stat span{color:var(--muted);font-size:13px}
+.stat b{font-size:22px;font-variant-numeric:tabular-nums}
+.stat small{color:var(--muted);font-size:12px}
+.stat.hero{grid-column:1/-1;background:var(--primary);color:var(--primary-ink);border-color:transparent}
+.stat.hero b{font-size:30px}
+.stat.hero span,.stat.hero small{color:inherit;opacity:.85}
+.stat.hero.neg{background:var(--danger)}
+button{font:inherit;font-size:15px;cursor:pointer;padding:9px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text)}
+.primary{background:var(--primary);color:var(--primary-ink);border-color:transparent;font-weight:600}
+.ghost{background:transparent}
+.danger{color:var(--danger)}
+.small{font-size:13px;padding:6px 10px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.actions.end{justify-content:flex-end}
+.monthnav{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+.monthnav b{min-width:170px;text-align:center}
+.filterbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0 2px}
+.filterbar select{width:auto;max-width:100%}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--soft);color:var(--primary)}
+.tag.warn{background:var(--warnbg);color:var(--warn)}
+.catpick{width:auto;max-width:100%;padding:6px 8px;font-size:14px;margin-top:6px}
+.hint{color:var(--primary);font-size:13px}
+dialog{width:min(460px,calc(100vw - 32px));border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--text);padding:20px}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+form h2{margin-bottom:10px}
+.field{display:flex;flex-direction:column;gap:4px;margin:10px 0}
+.field>span{font-size:13px;color:var(--muted)}
+input,select,textarea{font:inherit;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text)}
+input[type=color]{height:44px;padding:4px}
+.err{color:var(--danger);font-weight:600}
+.weekdays,.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;margin-top:8px}
+.weekdays span{text-align:center;font-size:12px;color:var(--muted)}
+.day{min-height:84px;border:1px solid var(--line);border-radius:10px;padding:4px;display:flex;flex-direction:column;gap:3px;cursor:pointer;min-width:0;background:var(--bg)}
+.day.out{visibility:hidden;cursor:default;border:0}
+.day.today{border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary)}
+.dnum{font-size:13px;font-weight:600}
+.chip{font-size:11px;line-height:1.3;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--primary);color:var(--primary-ink);border:0;border-radius:6px;padding:2px 5px;width:100%}
+.chip.paid{opacity:.4}
+.liab .amt{font-size:18px;white-space:nowrap}
+.liab.done{opacity:.75}
+.kvs{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:14px;color:var(--muted);margin-top:4px}
+.kvs b{color:var(--text)}
+.liab .actions{margin-top:10px}
+details.card summary{cursor:pointer;font-weight:600}
+details.card .card{margin-top:10px}
+.empty{color:var(--muted);text-align:center;padding:14px 0;margin:0}
+/* wykresy */
+.donutwrap{display:flex;gap:18px;align-items:center;flex-wrap:wrap;justify-content:center}
+.donut{width:220px;max-width:70%;height:auto;flex-shrink:0}
+.donut .dl{font-size:12px;fill:var(--muted)}
+.donut .dv{font-size:13px;font-weight:700;fill:var(--text)}
+.legend{list-style:none;margin:0;padding:0;flex:1 1 220px;min-width:0}
+.legend li{display:grid;grid-template-columns:12px minmax(0,1fr) auto 42px;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+.legend li:first-child{border-top:0}
+.legend i{width:12px;height:12px;border-radius:3px;display:block}
+.legend b{font-variant-numeric:tabular-nums}
+.legend small{color:var(--muted);text-align:right}
+.hb{padding:6px 0}
+.track{position:relative;height:12px;background:var(--bar);border-radius:99px;margin:6px 0}
+.track i{position:absolute;left:0;top:0;bottom:0;border-radius:99px}
+.track em{position:absolute;top:-4px;bottom:-4px;width:3px;margin-left:-1px;background:var(--text);border-radius:2px}
+.cols{width:100%;max-width:560px;height:auto;display:block;margin:0 auto}
+.cols .ax{font-size:10px;fill:var(--muted)}
+.cols .tv{font-size:10px;font-weight:600;fill:var(--text)}
+.mini-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:13px}
+.mini-legend span{display:inline-flex;align-items:center;gap:6px}
+.mini-legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.upcoming{border-left:4px solid var(--primary)}
+.gate{max-width:460px;width:100%;margin:24px auto}
+.gate h2{margin-bottom:8px}
+.gate .tag{margin:6px 0}
+.gate .center{margin-top:12px}
+h3{margin:14px 0 4px}
+details summary{cursor:pointer;font-weight:600;margin:6px 0}
+details ol{padding-left:20px;margin:8px 0}
+details li{margin:4px 0}
+pre.sql{white-space:pre;overflow:auto;max-width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:12px;max-height:280px;margin:8px 0}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:20;max-width:calc(100vw - 32px);text-align:center}
+@media (max-width:640px){
+  main{padding:12px 16px}
+  .stat b{font-size:19px}
+  .monthnav b{min-width:0}
+  .day{min-height:58px}
+  .chip{font-size:0;width:9px;height:9px;padding:0;border-radius:50%;align-self:center}
+  .topbar{padding:8px 16px;gap:4px}
+  .brand{width:100%;font-size:16px}
+  nav{width:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  nav a{font-size:14px;padding:6px 10px}
+}
+</style>
+</head>
+<body>
+<header class="top"><div class="topbar"><div class="brand">🏠 Nasz budżet</div><span id="syncBadge" class="sync"></span><nav id="nav"></nav></div></header>
+<main id="app"></main>
+<dialog id="dlg"><form id="dlgForm"></form></dialog>
+<div id="toast" class="toast" hidden></div>
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+
+<script>
+'use strict';
+
+/* ===== Stałe ===== */
+const KEY = 'budzet-domowy-v1';
+const TABS = [['przeglad','Przegląd'],['budzet','Budżet'],['wykresy','Wykresy'],['kalendarz','Kalendarz'],['zobowiazania','Zobowiązania'],['ustawienia','Ustawienia']];
+const WEEKDAYS = ['Pn','Wt','Śr','Cz','Pt','So','Nd'];
+const COLLS = ['incomes','categories','expenses','events','liabilities'];
+const PALETTE = ['#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f','#edc948','#b07aa1','#ff9da7','#9c755f','#7f7f7f'];
+const NONE = { id: '__none', name: 'Bez kategorii', icon: '❔', color: '#9aa19d' };
+const DEFAULT_CATS = [
+  { id: 'c-czynsz', name: 'Czynsz i rachunki', icon: '🏠', color: '#4e79a7', limit: 0 },
+  { id: 'c-jedzenie', name: 'Jedzenie i chemia', icon: '🛒', color: '#59a14f', limit: 0 },
+  { id: 'c-transport', name: 'Transport', icon: '🚗', color: '#f28e2b', limit: 0 },
+  { id: 'c-telefon', name: 'Telefon i internet', icon: '📱', color: '#76b7b2', limit: 0 },
+  { id: 'c-rozrywka', name: 'Rozrywka', icon: '🎬', color: '#e15759', limit: 0 },
+  { id: 'c-prezenty', name: 'Prezenty i wydarzenia', icon: '🎁', color: '#b07aa1', limit: 0 },
+  { id: 'c-inne', name: 'Inne', icon: '📦', color: '#9c755f', limit: 0 },
+];
+// Słowa kluczowe do podpowiadania kategorii, zanim powstanie historia wydatków
+const KEYWORDS = [
+  ['c-jedzenie', ['lidl','biedronka','żabka','kaufland','carrefour','zakupy','restauracja','pizza','kawa','obiad']],
+  ['c-transport', ['paliwo','orlen','shell','bilet','mpk','uber','taxi','parking']],
+  ['c-telefon', ['internet','telefon','orange','t-mobile','abonament']],
+  ['c-rozrywka', ['kino','netflix','spotify','bilety']],
+  ['c-czynsz', ['czynsz','prąd','gaz','woda','media','wspólnota']],
+  ['c-prezenty', ['prezent','urodziny','kwiaty','święta']],
+];
+
+/* ===== Pomocnicze ===== */
+const $ = (sel) => document.querySelector(sel);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const now = () => Date.now();
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+const money = (n) => new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' }).format(Number(n) || 0);
+const sum = (arr, f) => arr.reduce((acc, x) => acc + (Number(f(x)) || 0), 0);
+const pad = (n) => String(n).padStart(2, '0');
+const isoOf = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const today = () => isoOf(new Date());
+const parse = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); };
+const ymOf = (iso) => iso.slice(0, 7);
+const daysIn = (ym) => { const [y, m] = ym.split('-').map(Number); return new Date(y, m, 0).getDate(); };
+const addYM = (ym, k) => { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m - 1 + k, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+const dueIn = (ym, day) => `${ym}-${pad(Math.min(Number(day), daysIn(ym)))}`;
+const addDays = (iso, k) => { const d = parse(iso); d.setDate(d.getDate() + k); return isoOf(d); };
+const addYears = (iso, k) => { const d = parse(iso); d.setFullYear(d.getFullYear() + k); return isoOf(d); };
+const daysBetween = (a, b) => Math.round((parse(b) - parse(a)) / 864e5);
+const monthDiff = (a, b) => (parse(b).getFullYear() - parse(a).getFullYear()) * 12 + parse(b).getMonth() - parse(a).getMonth();
+const ymLabel = (ym) => { const [y, m] = ym.split('-').map(Number); const s = new Date(y, m - 1, 1).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' }); return s.charAt(0).toUpperCase() + s.slice(1); };
+const shortMonth = (ym) => { const [y, m] = ym.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('pl-PL', { month: 'short' }).replace('.', '') + ' ' + String(y).slice(2); };
+const lastMonths = (ym, n) => Array.from({ length: n }, (_, i) => addYM(ym, i - (n - 1)));
+const fmtDate = (iso) => parse(iso).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' });
+const inDays = (iso) => { const n = daysBetween(today(), iso); if (n === 0) return 'dziś'; if (n === 1) return 'jutro'; return n > 0 ? `za ${n} dni` : `${-n} dni temu`; };
+const tokens = (s) => String(s || '').toLowerCase().match(/[\p{L}\d]{3,}/gu) || [];
+const byId = (list, id) => list.find((x) => x.id === id);
+
+/* ===== Model danych ===== */
+// Każdy rekord ma updatedAt (do scalania przy synchronizacji). Usunięcia zapisujemy jako „nagrobki” (tombstones).
+const defaults = () => ({
+  schema: 2,
+  names: { A: 'Osoba 1', B: 'Osoba 2' },
+  namesAt: 0,
+  incomes: [],
+  categories: DEFAULT_CATS.map((c) => ({ ...c, updatedAt: 0 })),
+  expenses: [],
+  events: [],
+  liabilities: [],
+  tombstones: [],
+});
+const withTime = (arr) => (Array.isArray(arr) ? arr : []).map((x) => ({ updatedAt: 0, ...x }));
+function normalize(s) {
+  const d = defaults();
+  const cats = Array.isArray(s.categories) ? s.categories : d.categories;
+  return {
+    schema: 2,
+    names: { ...d.names, ...(s.names || {}) },
+    namesAt: s.namesAt || 0,
+    incomes: withTime(s.incomes),
+    categories: cats.map((c, i) => {
+      const base = DEFAULT_CATS.find((x) => x.id === c.id);
+      return { icon: base?.icon ?? '🎯', color: base?.color ?? PALETTE[i % PALETTE.length], updatedAt: 0, ...c };
+    }),
+    expenses: withTime(s.expenses),
+    events: withTime(s.events),
+    liabilities: withTime(s.liabilities),
+    tombstones: Array.isArray(s.tombstones) ? s.tombstones : [],
+  };
+}
+let state = defaults();
+const ui = { month: ymOf(today()), cal: ymOf(today()), catFilter: 'all' };
+
+/* ===== Szyfrowanie: hasło → klucz AES-GCM, zapisany w IndexedDB jako klucz nieeksportowalny ===== */
+const VAULT_KEY = 'budzet-vault-v1'; // sól i sprawdzenie hasła (bez samego klucza)
+const DATA_KEY = 'budzet-data-v2';   // zaszyfrowane dane na tym telefonie
+const LEGACY_KEY = KEY;              // poprzednia wersja (dane jawne) – migrowane przy pierwszym uruchomieniu
+const KDF_ITER = 600000;
+const enc = new TextEncoder(), dec = new TextDecoder();
+let CK = null;        // klucz danych, tylko w pamięci
+let ready = false;    // czy dane są odszyfrowane
+let gate = 'setup';   // ekran startowy: 'setup' | 'join' | 'unlock' | 'error'
+let gateError = '';
+let saveChain = Promise.resolve();
+
+const b64 = (bytes) => { let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s); };
+const unb64 = (str) => Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
+const readVault = () => { try { return JSON.parse(localStorage.getItem(VAULT_KEY)); } catch { return null; } };
+
+async function deriveKey(password, salt) {
+  const base = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: KDF_ITER, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function sealText(key, text) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(text));
+  return { iv: b64(iv), ct: b64(new Uint8Array(ct)) };
+}
+const openText = async (key, box) => dec.decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(box.iv) }, key, unb64(box.ct)));
+
+function idbRun(mode, fn) {
+  return new Promise((resolve, reject) => {
+    const open = indexedDB.open('budzet-keys', 1);
+    open.onupgradeneeded = () => open.result.createObjectStore('keys');
+    open.onerror = () => reject(open.error);
+    open.onsuccess = () => {
+      const db = open.result;
+      const tx = db.transaction('keys', mode);
+      const req = fn(tx.objectStore('keys'));
+      tx.oncomplete = () => { db.close(); resolve(req.result); };
+      tx.onerror = () => { db.close(); reject(tx.error); };
+    };
+  });
+}
+const idbGetKey = () => idbRun('readonly', (s) => s.get('vault'));
+const idbPutKey = (k) => idbRun('readwrite', (s) => s.put(k, 'vault'));
+const idbDelKey = () => idbRun('readwrite', (s) => s.delete('vault'));
+
+async function createVault(key, salt) {
+  localStorage.setItem(VAULT_KEY, JSON.stringify({ salt: b64(salt), check: await sealText(key, JSON.stringify({ ok: 'budzet' })) }));
+  await idbPutKey(key);
+  CK = key;
+}
+async function unlockWith(password) {
+  const v = readVault();
+  const key = await deriveKey(password, unb64(v.salt));
+  try {
+    if (JSON.parse(await openText(key, v.check)).ok !== 'budzet') return false;
+  } catch { return false; }
+  await idbPutKey(key);
+  CK = key;
+  return true;
+}
+async function openData() {
+  const box = JSON.parse(localStorage.getItem(DATA_KEY) || 'null');
+  state = box ? normalize(JSON.parse(await openText(CK, box))) : defaults();
+  ready = true;
+}
+
+// Zapisy są szyfrowane i ustawiane w kolejce, żeby nie nakładały się na siebie
+function save() {
+  if (!CK) return;
+  const snapshot = JSON.stringify(state);
+  saveChain = saveChain
+    .then(async () => { localStorage.setItem(DATA_KEY, JSON.stringify(await sealText(CK, snapshot))); })
+    .catch(() => toast('Nie udało się zapisać danych w przeglądarce.'));
+}
+function commit() { save(); render(); scheduleSync(); }
+
+function saveItem(coll, item, v) {
+  if (item) Object.assign(item, v, { updatedAt: now() });
+  else state[coll].push({ id: uid(), ...v, updatedAt: now() });
+}
+function setField(coll, id, patch) {
+  const it = byId(state[coll], id);
+  if (it) Object.assign(it, patch, { updatedAt: now() });
+}
+function deleteRecord(coll, id) {
+  const i = state[coll].findIndex((x) => x.id === id);
+  if (i >= 0) state[coll].splice(i, 1);
+  state.tombstones.push({ c: coll, id, at: now() });
+}
+function removeItem(coll, id, msg) {
+  if (!confirm(msg)) return;
+  deleteRecord(coll, id);
+  commit();
+}
+
+// Scalanie dwóch stanów: dla każdego id wygrywa nowszy zapis, a usunięcie kasuje wszystko, co było edytowane wcześniej.
+function mergeDocs(a, b) {
+  const x = normalize(a), y = normalize(b);
+  const tomb = new Map();
+  for (const t of [...x.tombstones, ...y.tombstones]) {
+    const k = `${t.c}|${t.id}`;
+    if (!tomb.has(k) || tomb.get(k).at < t.at) tomb.set(k, t);
+  }
+  const out = normalize({});
+  out.names = x.namesAt >= y.namesAt ? x.names : y.names;
+  out.namesAt = Math.max(x.namesAt, y.namesAt);
+  for (const c of COLLS) {
+    const best = new Map();
+    for (const it of [...x[c], ...y[c]]) {
+      const cur = best.get(it.id);
+      if (!cur || it.updatedAt > cur.updatedAt) best.set(it.id, it);
+    }
+    out[c] = [...best.values()].filter((it) => { const t = tomb.get(`${c}|${it.id}`); return !t || t.at < it.updatedAt; });
+  }
+  out.tombstones = [...tomb.values()].filter((t) => now() - t.at < 180 * 864e5);
+  return out;
+}
+
+// Czyści wszystkie dane (zapisując usunięcia), zostawia kategorie domyślne.
+function wipe() {
+  const at = now();
+  for (const c of ['incomes', 'expenses', 'events', 'liabilities']) for (const it of state[c]) state.tombstones.push({ c, id: it.id, at });
+  for (const c of state.categories) state.tombstones.push({ c: 'categories', id: c.id, at });
+  const d = defaults();
+  state.incomes = []; state.expenses = []; state.events = []; state.liabilities = [];
+  state.categories = d.categories.map((c) => ({ ...c, updatedAt: at + 1 }));
+  state.names = d.names; state.namesAt = at + 1;
+}
+
+/* ===== Obliczenia ===== */
+const nameOf = (k) => k === 'half' ? 'wspólne' : (state.names[k] ?? '—');
+const catExists = (id) => state.categories.some((c) => c.id === id);
+const catInfo = (id) => state.categories.find((c) => c.id === id) || NONE;
+const catKey = (e) => (catExists(e.categoryId) ? e.categoryId : NONE.id);
+const splitLabel = (s) => s === 'half' ? 'wspólny 50/50' : 'osobisty';
+
+const incomeOf = (k) => sum(state.incomes.filter((i) => !k || i.owner === k), (i) => i.amount);
+const monthExpenses = (ym) => state.expenses.filter((e) => ymOf(e.date) === ym);
+const groupTotals = (list) => list.reduce((acc, e) => { const k = catKey(e); acc[k] = (acc[k] || 0) + Number(e.amount); return acc; }, {});
+const groupByCat = (list) => {
+  const m = new Map();
+  for (const e of list) {
+    const c = catInfo(e.categoryId);
+    const g = m.get(c.id) || { ...c, value: 0 };
+    g.value += Number(e.amount) || 0;
+    m.set(c.id, g);
+  }
+  return [...m.values()].sort((a, b) => b.value - a.value);
+};
+
+const installmentsLeft = (l) => Math.max(0, l.installmentsTotal - l.installmentsPaid);
+const activeLiabs = () => state.liabilities.filter((l) => installmentsLeft(l) > 0);
+const monthlyInstallments = () => sum(activeLiabs(), (l) => l.installmentAmount);
+const remainingDebt = () => sum(activeLiabs(), (l) => installmentsLeft(l) * l.installmentAmount);
+const obligationOf = (k) => sum(activeLiabs(), (l) => l.owner === k ? l.installmentAmount : l.owner === 'half' ? l.installmentAmount / 2 : 0);
+// paidThrough = miesiąc terminu ostatnio opłaconej raty. Gdy go brak (dane sprzed poprawki), termin liczymy z dzisiejszej daty.
+const nextDue = (l) => {
+  if (l.paidThrough) return dueIn(addYM(l.paidThrough, 1), l.dueDay);
+  const t = today(); let d = dueIn(ymOf(t), l.dueDay); if (d < t) d = dueIn(addYM(ymOf(t), 1), l.dueDay); return d;
+};
+const endDate = (l) => dueIn(addYM(ymOf(nextDue(l)), installmentsLeft(l) - 1), l.dueDay);
+const byNextDue = (a, b) => nextDue(a).localeCompare(nextDue(b));
+
+const openEvents = () => state.events.filter((e) => !e.paid).sort((a, b) => a.date.localeCompare(b.date));
+const reserveFor = (e) => Number(e.amount) / Math.max(1, monthDiff(today(), e.date));
+const monthlyReserve = () => sum(openEvents().filter((e) => e.date >= today() && monthDiff(today(), e.date) <= 12), reserveFor);
+
+function settlement(ym) {
+  const shared = monthExpenses(ym).filter((e) => e.split === 'half');
+  const total = sum(shared, (e) => e.amount);
+  const paidA = sum(shared.filter((e) => e.paidBy === 'A'), (e) => e.amount);
+  const paidB = sum(shared.filter((e) => e.paidBy === 'B'), (e) => e.amount);
+  return { total, paidA, paidB, net: paidA - total / 2 }; // net > 0: B oddaje A
+}
+
+// Podpowiedź kategorii: najpierw historia wydatków z podobnymi słowami, potem słowa kluczowe.
+function suggestCategory(text) {
+  const words = tokens(text);
+  if (!words.length) return null;
+  const lower = String(text || '').toLowerCase();
+  const score = {};
+  for (const e of state.expenses) {
+    if (!catExists(e.categoryId)) continue;
+    const known = new Set(tokens(e.description));
+    const hits = words.filter((w) => known.has(w)).length;
+    if (hits) score[e.categoryId] = (score[e.categoryId] || 0) + hits * 2;
+  }
+  for (const [catId, kws] of KEYWORDS) {
+    if (!catExists(catId)) continue;
+    const hits = kws.filter((k) => lower.includes(k)).length;
+    if (hits) score[catId] = (score[catId] || 0) + hits;
+  }
+  const best = Object.entries(score).sort((a, b) => b[1] - a[1])[0];
+  return best ? best[0] : null;
+}
+
+/* ===== Komponenty HTML ===== */
+const bar = (value, max) => {
+  const p = max > 0 ? Math.min(100, (value / max) * 100) : 0;
+  return `<div class="bar ${max > 0 && value > max ? 'over' : ''}"><i style="width:${p}%"></i></div>`;
+};
+const stat = (label, value, sub = '') => `<div class="stat"><span>${esc(label)}</span><b>${value}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div>`;
+const empty = (t) => `<p class="empty">${esc(t)}</p>`;
+const monthNav = (ym, p) => `
+  <div class="monthnav">
+    <button class="ghost" data-action="${p}Prev" aria-label="Poprzedni miesiąc">‹</button>
+    <b>${esc(ymLabel(ym))}</b>
+    <button class="ghost" data-action="${p}Next" aria-label="Następny miesiąc">›</button>
+    ${ym !== ymOf(today()) ? `<button class="ghost small" data-action="${p}Now">Dziś</button>` : ''}
+  </div>`;
+const catRow = (c, spent) => {
+  const limit = c.limit || 0;
+  return `<div class="cat">
+    <div class="rowline">
+      <span><i class="dot" style="background:${c.color}"></i>${esc(c.icon)} ${esc(c.name)}</span>
+      <span>${money(spent)} ${limit ? `<span class="muted">/ ${money(limit)}</span>` : '<span class="muted">bez limitu</span>'}</span>
+    </div>
+    ${limit ? bar(spent, limit) : ''}
+  </div>`;
+};
+const catOptions = (selected) => `<option value="" ${catExists(selected) ? '' : 'selected'}>❔ Bez kategorii</option>` +
+  state.categories.map((c) => `<option value="${esc(c.id)}" ${c.id === selected ? 'selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('');
+const settlementHTML = (st) => {
+  if (!st.total) return empty('Brak wspólnych wydatków w tym miesiącu.');
+  const msg = Math.abs(st.net) < 0.005 ? '✅ Jesteście na zero'
+    : st.net > 0 ? `<b>${esc(nameOf('B'))}</b> oddaje <b>${esc(nameOf('A'))}</b>: <b>${money(st.net)}</b>`
+    : `<b>${esc(nameOf('A'))}</b> oddaje <b>${esc(nameOf('B'))}</b>: <b>${money(-st.net)}</b>`;
+  return `<p>Wspólne wydatki: <b>${money(st.total)}</b> · po ${money(st.total / 2)} na osobę</p>
+    <p class="muted">Zapłacone przez ${esc(nameOf('A'))}: ${money(st.paidA)} · przez ${esc(nameOf('B'))}: ${money(st.paidB)}</p>
+    <p class="settle">${msg}</p>`;
+};
+const liabCard = (l) => {
+  const active = installmentsLeft(l) > 0;
+  return `<article class="card liab ${active ? '' : 'done'}">
+    <div class="head">
+      <div><h3>${esc(l.name)}</h3><small class="muted">${esc(l.creditor || '—')} · ${esc(nameOf(l.owner))}</small></div>
+      <b class="amt">${money(l.installmentAmount)} <small class="muted">/ mies.</small></b>
+    </div>
+    ${bar(l.installmentsPaid, l.installmentsTotal)}
+    <div class="kvs">
+      <span>Rata ${l.installmentsPaid} z ${l.installmentsTotal}</span>
+      ${active ? `<span>Pozostało: <b>${money(installmentsLeft(l) * l.installmentAmount)}</b></span>
+        <span>Następna: <b>${fmtDate(nextDue(l))}</b></span>
+        <span>Ostatnia: <b>${fmtDate(endDate(l))}</b></span>` : '<span class="ok">✅ spłacone w całości</span>'}
+    </div>
+    ${l.note ? `<p class="muted">${esc(l.note)}</p>` : ''}
+    <div class="actions">
+      ${active ? `<button class="primary small" data-action="payInst" data-id="${l.id}">+1 opłacona rata</button>` : ''}
+      ${l.installmentsPaid > 0 ? `<button class="ghost small" data-action="undoInst" data-id="${l.id}">Cofnij ratę</button>` : ''}
+      <button class="ghost small" data-action="editLiab" data-id="${l.id}">Edytuj</button>
+      <button class="ghost small danger" data-action="delLiab" data-id="${l.id}">Usuń</button>
+    </div>
+  </article>`;
+};
+
+// Wykresy SVG (bez zewnętrznych bibliotek, działają offline)
+function donutSVG(groups, total) {
+  const r = 70, circ = 2 * Math.PI * r;
+  let acc = 0, arcs = '';
+  for (const g of groups) {
+    const len = (g.value / total) * circ;
+    arcs += `<circle r="${r}" cx="100" cy="100" fill="none" stroke="${g.color}" stroke-width="30" stroke-dasharray="${len.toFixed(2)} ${(circ - len).toFixed(2)}" stroke-dashoffset="${(-acc).toFixed(2)}" transform="rotate(-90 100 100)"><title>${esc(g.name)}: ${money(g.value)}</title></circle>`;
+    acc += len;
+  }
+  return `<svg class="donut" viewBox="0 0 200 200" role="img" aria-label="Udział kategorii w wydatkach">
+    <circle r="${r}" cx="100" cy="100" fill="none" stroke="var(--bar)" stroke-width="30"/>
+    ${arcs}
+    <text class="dl" x="100" y="94" text-anchor="middle">Razem</text>
+    <text class="dv" x="100" y="114" text-anchor="middle">${money(total)}</text>
+  </svg>`;
+}
+function stackedSVG(months, cats) {
+  const W = 360, H = 230, top = 22, bottom = 26, padX = 8;
+  const max = Math.max(1, ...months.map((m) => m.total));
+  const slot = (W - padX * 2) / months.length;
+  const bw = Math.min(40, slot * 0.6);
+  const plot = H - top - bottom;
+  let out = '';
+  months.forEach((m, i) => {
+    const x = padX + i * slot + (slot - bw) / 2;
+    let y = H - bottom;
+    for (const c of cats) {
+      const v = m.parts[c.id] || 0;
+      if (!v) continue;
+      const h = (v / max) * plot;
+      y -= h;
+      out += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${c.color}"><title>${esc(c.name)}: ${money(v)}</title></rect>`;
+    }
+    out += `<text class="ax" x="${(x + bw / 2).toFixed(1)}" y="${H - 8}" text-anchor="middle">${esc(m.label)}</text>`;
+    if (m.total) out += `<text class="tv" x="${(x + bw / 2).toFixed(1)}" y="${(y - 5).toFixed(1)}" text-anchor="middle">${Math.round(m.total).toLocaleString('pl-PL')}</text>`;
+  });
+  return `<svg class="cols" viewBox="0 0 ${W} ${H}" role="img" aria-label="Wydatki w ostatnich miesiącach według kategorii">${out}</svg>`;
+}
+const legendHTML = (cats) => `<div class="mini-legend">${cats.map((c) => `<span><i style="background:${c.color}"></i>${esc(c.icon)} ${esc(c.name)}</span>`).join('')}</div>`;
+
+/* ===== Najbliższe 14 dni (karta na ekranie startowym) ===== */
+const HORIZON_DAYS = 14;
+function upcomingItems(days = HORIZON_DAYS) {
+  const t = today();
+  const items = [];
+  for (const e of openEvents()) {
+    const n = daysBetween(t, e.date);
+    if (n >= 0 && n <= days) items.push({ icon: '🎉', title: e.title, date: e.date, amount: Number(e.amount), sub: catInfo(e.categoryId).name });
+  }
+  for (const l of activeLiabs()) {
+    const d = nextDue(l);
+    const n = daysBetween(t, d);
+    if (n >= 0 && n <= days) items.push({ icon: '💳', title: l.name, date: d, amount: Number(l.installmentAmount), sub: `rata ${l.installmentsPaid + 1} z ${l.installmentsTotal} · ${nameOf(l.owner)}` });
+  }
+  return items.sort((a, b) => a.date.localeCompare(b.date));
+}
+function upcomingCard() {
+  const items = upcomingItems();
+  const total = sum(items, (i) => i.amount);
+  return `<section class="card upcoming">
+    <div class="head"><h2>Najbliższe ${HORIZON_DAYS} dni</h2>${items.length ? `<span class="tag">Razem: ${money(total)}</span>` : ''}</div>
+    ${items.length ? items.map((i) => `<div class="row">
+        <div class="grow"><b>${i.icon} ${esc(i.title)}</b><small class="muted">${fmtDate(i.date)} · ${inDays(i.date)} · ${esc(i.sub)}</small></div>
+        <b>${money(i.amount)}</b>
+      </div>`).join('') : empty(`Nic nie wypada w najbliższych ${HORIZON_DAYS} dniach. 🎉`)}
+  </section>`;
+}
+
+/* ===== Widoki ===== */
+function viewDashboard() {
+  const ym = ui.month;
+  const income = incomeOf(), debts = monthlyInstallments(), limits = sum(state.categories, (c) => c.limit);
+  const reserve = monthlyReserve(), free = income - debts - limits - reserve;
+  const list = monthExpenses(ym), map = groupTotals(list);
+  const spent = sum(list, (e) => e.amount), st = settlement(ym);
+  const rows = [...state.categories, ...(map[NONE.id] ? [NONE] : [])];
+  return `
+    ${upcomingCard()}
+    ${monthNav(ym, 'month')}
+    <section class="stats">
+      <div class="stat hero ${free < 0 ? 'neg' : ''}"><span>Do dyspozycji po opłatach i odkładaniu</span><b>${money(free)}</b><small>dochody − raty − limity − rezerwa na wydarzenia</small></div>
+      ${stat('Dochody', money(income), `${nameOf('A')}: ${money(incomeOf('A'))} · ${nameOf('B')}: ${money(incomeOf('B'))}`)}
+      ${stat('Raty i zobowiązania', money(debts), `${nameOf('A')}: ${money(obligationOf('A'))} · ${nameOf('B')}: ${money(obligationOf('B'))}`)}
+      ${stat('Limity wydatków', money(limits), 'plan miesięcznych wydatków')}
+      ${stat('Rezerwa na wydarzenia', money(reserve), 'miesięcznie na najbliższe wydarzenia')}
+      ${stat(`Wydano – ${ymLabel(ym)}`, money(spent), limits ? `z limitów: ${money(limits)}` : 'ustaw limity w zakładce Budżet')}
+    </section>
+    <section class="card">
+      <h2>Budżet – ${esc(ymLabel(ym))}</h2>
+      ${rows.map((c) => catRow(c, map[c.id] || 0)).join('')}
+    </section>
+    <section class="card">
+      <h2>Rozliczenie wspólnych wydatków</h2>
+      ${settlementHTML(st)}
+    </section>`;
+}
+
+function viewBudget() {
+  const ym = ui.month;
+  const list = monthExpenses(ym).sort((a, b) => b.date.localeCompare(a.date));
+  const shown = list.filter((e) => ui.catFilter === 'all' || catKey(e) === ui.catFilter);
+  const todo = list.filter((e) => !catExists(e.categoryId)).length;
+  const map = groupTotals(list);
+  const edit = (act, id) => `<button class="ghost small" data-action="${act}" data-id="${id}">Edytuj</button>`;
+  const del = (act, id) => `<button class="ghost small danger" data-action="${act}" data-id="${id}">Usuń</button>`;
+  const expRow = (e) => `<div class="row">
+      <div class="grow"><b>${esc(e.description || catInfo(e.categoryId).name)}</b>
+        <small class="muted">${fmtDate(e.date)} · płatnik: ${esc(nameOf(e.paidBy))} · ${splitLabel(e.split)}</small>
+        <select class="catpick" data-change="setCat" data-id="${e.id}" aria-label="Kategoria wydatku">${catOptions(e.categoryId)}</select>
+      </div>
+      <div class="right"><b>${money(e.amount)}</b><div class="icons">${edit('editExp', e.id)}${del('delExp', e.id)}</div></div>
+    </div>`;
+  return `
+    ${monthNav(ym, 'month')}
+    <section class="card">
+      <div class="head"><h2>Dochody miesięczne</h2><button class="primary small" data-action="addIncome">+ Dodaj</button></div>
+      ${state.incomes.length ? state.incomes.map((i) => `<div class="row">
+          <div class="grow"><b>${esc(i.name)}</b><small class="muted">${esc(nameOf(i.owner))}</small></div>
+          <div class="right"><b>${money(i.amount)}</b><div class="icons">${edit('editIncome', i.id)}${del('delIncome', i.id)}</div></div>
+        </div>`).join('') : empty('Dodajcie dochody obojga, a zobaczycie, ile zostaje na życie.')}
+      <div class="total">
+        <span>${esc(nameOf('A'))}: <b>${money(incomeOf('A'))}</b></span>
+        <span>${esc(nameOf('B'))}: <b>${money(incomeOf('B'))}</b></span>
+        <span>Razem: <b>${money(incomeOf())}</b></span>
+      </div>
+    </section>
+    <section class="card">
+      <div class="head"><h2>Kategorie i limity</h2><button class="primary small" data-action="addCat">+ Kategoria</button></div>
+      ${state.categories.map((c) => `<div class="row">${catRow(c, map[c.id] || 0)}<div class="icons">${edit('editCat', c.id)}${del('delCat', c.id)}</div></div>`).join('')}
+      <p class="muted">Limit 0 = brak limitu. Usunięcie kategorii nie kasuje wydatków – trafiają do „Bez kategorii”.</p>
+    </section>
+    <section class="card">
+      <div class="head"><h2>Wydatki – ${esc(ymLabel(ym))}</h2><button class="primary small" data-action="addExp">+ Wydatek</button></div>
+      <div class="filterbar">
+        <select data-change="catFilter" aria-label="Filtr według kategorii">
+          <option value="all" ${ui.catFilter === 'all' ? 'selected' : ''}>Wszystkie kategorie</option>
+          <option value="${NONE.id}" ${ui.catFilter === NONE.id ? 'selected' : ''}>❔ Bez kategorii</option>
+          ${state.categories.map((c) => `<option value="${esc(c.id)}" ${ui.catFilter === c.id ? 'selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('')}
+        </select>
+        ${todo ? `<span class="tag warn">Do skategoryzowania: ${todo}</span>` : '<span class="muted">Wszystkie wydatki mają kategorię ✔</span>'}
+      </div>
+      ${shown.length ? shown.map(expRow).join('') : empty('Brak wydatków dla tego filtra w wybranym miesiącu.')}
+      <div class="total"><span>Razem (pokazane)</span><b>${money(sum(shown, (e) => e.amount))}</b></div>
+    </section>`;
+}
+
+function viewCharts() {
+  const ym = ui.month;
+  const list = monthExpenses(ym);
+  const total = sum(list, (e) => e.amount);
+  const groups = groupByCat(list);
+  const map = groupTotals(list);
+  const cats = [...state.categories, NONE];
+  const monthData = lastMonths(ym, 6).map((m) => ({
+    label: shortMonth(m),
+    total: sum(monthExpenses(m), (e) => e.amount),
+    parts: groupTotals(monthExpenses(m)),
+  }));
+  const hasHistory = monthData.some((m) => m.total > 0);
+  const gmax = Math.max(1, ...state.categories.flatMap((c) => [c.limit || 0, map[c.id] || 0]));
+  return `
+    ${monthNav(ym, 'month')}
+    <section class="card">
+      <h2>Na co poszły pieniądze – ${esc(ymLabel(ym))}</h2>
+      ${total ? `<div class="donutwrap">${donutSVG(groups, total)}
+        <ul class="legend">${groups.map((g) => `<li><i style="background:${g.color}"></i><span>${esc(g.icon)} ${esc(g.name)}</span><b>${money(g.value)}</b><small>${Math.round((g.value / total) * 100)}%</small></li>`).join('')}</ul>
+      </div>` : empty('Brak wydatków w tym miesiącu. Wykres pojawi się po dodaniu pierwszego wydatku.')}
+    </section>
+    <section class="card">
+      <h2>Wydano a limity</h2>
+      ${state.categories.map((c) => {
+        const spent = map[c.id] || 0, limit = c.limit || 0;
+        return `<div class="hb">
+          <div class="rowline"><span><i class="dot" style="background:${c.color}"></i>${esc(c.icon)} ${esc(c.name)}</span>
+            <span>${money(spent)}${limit ? ` <span class="muted">/ ${money(limit)}</span>` : ''}</span></div>
+          <div class="track"><i style="width:${(spent / gmax) * 100}%;background:${c.color}"></i>${limit ? `<em style="left:${(limit / gmax) * 100}%"></em>` : ''}</div>
+        </div>`;
+      }).join('')}
+      <p class="muted">Kolorowy pasek to wydana kwota, czarna kreska to limit.</p>
+    </section>
+    <section class="card">
+      <h2>Ostatnie 6 miesięcy</h2>
+      ${hasHistory ? `${stackedSVG(monthData, cats)}${legendHTML(cats)}` : empty('Gdy pojawią się wydatki z kilku miesięcy, zobaczysz tu trend.')}
+    </section>`;
+}
+
+function viewCalendar() {
+  const ym = ui.cal, t = today();
+  const [y, m] = ym.split('-').map(Number);
+  const offset = (new Date(y, m - 1, 1).getDay() + 6) % 7;
+  const cells = Array.from({ length: offset }, () => '<div class="day out"></div>');
+  for (let d = 1; d <= daysIn(ym); d++) {
+    const iso = `${ym}-${pad(d)}`;
+    const evs = state.events.filter((e) => e.date === iso);
+    cells.push(`<div class="day ${iso === t ? 'today' : ''}" data-action="addEventOn" data-date="${iso}">
+      <span class="dnum">${d}</span>
+      ${evs.map((e) => `<button class="chip ${e.paid ? 'paid' : ''}" data-action="editEvent" data-id="${e.id}" title="${esc(e.title)}">${esc(e.title)}</button>`).join('')}
+    </div>`);
+  }
+  while (cells.length % 7) cells.push('<div class="day out"></div>');
+
+  const open = openEvents();
+  const paid = state.events.filter((e) => e.paid).sort((a, b) => b.date.localeCompare(a.date));
+  const openRow = (e) => `<div class="row">
+    <div class="grow"><b>${esc(e.title)}</b>
+      <small class="muted">${fmtDate(e.date)} · ${inDays(e.date)} · ${esc(catInfo(e.categoryId).name)}${e.repeat === 'yearly' ? ' · co roku' : ''}</small>
+      ${e.date >= t ? `<small class="muted">odkładaj ${money(reserveFor(e))}/mies. do terminu</small>` : '<small class="ok">termin minął – oznacz jako opłacone</small>'}
+      ${e.note ? `<small class="muted">${esc(e.note)}</small>` : ''}
+    </div>
+    <div class="right"><b>${money(e.amount)}</b>
+      <div class="icons">
+        <button class="primary small" data-action="payEvent" data-id="${e.id}">Opłać</button>
+        <button class="ghost small" data-action="editEvent" data-id="${e.id}">Edytuj</button>
+        <button class="ghost small danger" data-action="delEvent" data-id="${e.id}">Usuń</button>
+      </div>
+    </div>
+  </div>`;
+  const paidRow = (e) => `<div class="row">
+    <div class="grow"><b>${esc(e.title)}</b><small class="muted">${fmtDate(e.date)} · ${money(e.amount)}</small></div>
+    <div class="icons"><button class="ghost small" data-action="restoreEvent" data-id="${e.id}">Przywróć</button><button class="ghost small danger" data-action="delEvent" data-id="${e.id}">Usuń</button></div>
+  </div>`;
+
+  return `
+    <section class="card">
+      ${monthNav(ym, 'cal')}
+      <div class="weekdays">${WEEKDAYS.map((d) => `<span>${d}</span>`).join('')}</div>
+      <div class="days">${cells.join('')}</div>
+      <p class="muted center">Kliknij dzień, żeby dodać wydarzenie. Kropka = wydarzenie.</p>
+    </section>
+    <section class="card">
+      <div class="head"><h2>Do opłacenia</h2><button class="primary small" data-action="addEvent">+ Wydarzenie</button></div>
+      ${open.length ? open.map(openRow).join('') : empty('Brak zaplanowanych wydarzeń. Dodaj urodziny, prezenty czy wyjazdy.')}
+    </section>
+    ${paid.length ? `<details class="card"><summary>Opłacone (${paid.length})</summary>${paid.map(paidRow).join('')}</details>` : ''}`;
+}
+
+function viewLiabilities() {
+  const act = activeLiabs().sort(byNextDue);
+  const done = state.liabilities.filter((l) => installmentsLeft(l) === 0);
+  const nxt = act[0];
+  return `
+    <section class="stats">
+      ${stat('Raty miesięcznie', money(monthlyInstallments()), `${nameOf('A')}: ${money(obligationOf('A'))} · ${nameOf('B')}: ${money(obligationOf('B'))}`)}
+      ${stat('Pozostało do spłaty', money(remainingDebt()), `${act.length} aktywnych zobowiązań`)}
+      ${stat('Najbliższa rata', nxt ? money(nxt.installmentAmount) : '—', nxt ? `${nxt.name} · ${fmtDate(nextDue(nxt))}` : 'Brak aktywnych rat 🎉')}
+    </section>
+    <div class="head"><h2>Aktywne zobowiązania</h2><button class="primary small" data-action="addLiab">+ Zobowiązanie</button></div>
+    ${act.length ? act.map(liabCard).join('') : empty('Brak aktywnych zobowiązań. Dodaj raty, pożyczki i kredyty, żeby mieć je w jednym miejscu.')}
+    ${done.length ? `<details class="card"><summary>Spłacone (${done.length})</summary>${done.map(liabCard).join('')}</details>` : ''}`;
+}
+
+function viewSettings() {
+  return `
+    ${syncSection()}
+    <section class="card">
+      <h2>Imiona</h2>
+      <p class="muted">Pojawią się we wszystkich zakładkach.</p>
+      <label class="field"><span>Osoba 1</span><input data-name="A" maxlength="20" value="${esc(state.names.A)}"></label>
+      <label class="field"><span>Osoba 2</span><input data-name="B" maxlength="20" value="${esc(state.names.B)}"></label>
+    </section>
+    <section class="card">
+      <h2>Kopia i przenoszenie danych</h2>
+      <p class="muted">Kopia jest szyfrowana hasłem, które podasz przy eksporcie. Import łączy dane z pliku z obecnymi – nic nie zostaje skasowane.</p>
+      <div class="actions">
+        <button class="primary" data-action="export">Eksportuj do pliku</button>
+        <button class="ghost" data-action="importPick">Importuj z pliku</button>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Inne</h2>
+      <div class="actions">
+        <button class="ghost" data-action="lockApp">Zablokuj aplikację na tym telefonie</button>
+        <button class="ghost" data-action="demo">Wczytaj dane przykładowe</button>
+        <button class="ghost danger" data-action="reset">Wyczyść wszystko</button>
+      </div>
+    </section>`;
+}
+
+const VIEWS = { przeglad: viewDashboard, budzet: viewBudget, wykresy: viewCharts, kalendarz: viewCalendar, zobowiazania: viewLiabilities, ustawienia: viewSettings };
+
+function render() {
+  if (!ready) { renderGate(); return; }
+  const hash = location.hash.slice(1);
+  const tab = VIEWS[hash] ? hash : 'przeglad';
+  $('#nav').innerHTML = TABS.map(([k, l]) => `<a href="#${k}" class="${k === tab ? 'active' : ''}">${l}</a>`).join('');
+  $('#app').innerHTML = VIEWS[tab]();
+  refreshBadge();
+}
+
+/* ===== Formularze (wspólny dialog) ===== */
+function fieldHTML(f, v) {
+  const val = v ?? '';
+  const attrs = `name="${f.name}" ${f.required ? 'required' : ''} ${f.min !== undefined ? `min="${f.min}"` : ''} ${f.max !== undefined ? `max="${f.max}"` : ''} ${f.step ? `step="${f.step}"` : ''}`;
+  let input;
+  if (f.type === 'select') {
+    input = `<select ${attrs}>${f.options.map(([k, l]) => `<option value="${esc(k)}" ${String(k) === String(val) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  } else if (f.type === 'textarea') {
+    input = `<textarea ${attrs} rows="2">${esc(val)}</textarea>`;
+  } else {
+    input = `<input type="${f.type}" ${attrs} value="${esc(val)}" placeholder="${esc(f.placeholder || '')}" ${f.type === 'text' ? 'maxlength="80"' : ''}>`;
+  }
+  return `<label class="field"><span>${esc(f.label)}</span>${input}</label>`;
+}
+
+function openForm({ title, fields, values = {}, onSave, onOpen }) {
+  const form = $('#dlgForm');
+  form.innerHTML = `<h2>${esc(title)}</h2>
+    ${fields.map((f) => fieldHTML(f, values[f.name])).join('')}
+    <p class="err" hidden></p>
+    <div class="actions end">
+      <button type="button" class="ghost" data-action="close">Anuluj</button>
+      <button class="primary">Zapisz</button>
+    </div>`;
+  form._fields = fields;
+  form._onSave = onSave;
+  if (onOpen) onOpen(form);
+  $('#dlg').showModal();
+  form.querySelector('input,select,textarea')?.focus();
+}
+
+$('#dlgForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const form = e.currentTarget;
+  if (!form.reportValidity()) return;
+  const data = {};
+  for (const f of form._fields) {
+    const raw = form.elements[f.name].value;
+    data[f.name] = f.type === 'number' ? Number(raw) : f.type === 'password' ? raw : raw.trim();
+  }
+  const err = form._onSave(data);
+  if (err) { const box = form.querySelector('.err'); box.textContent = err; box.hidden = false; return; }
+  $('#dlg').close();
+  commit();
+});
+
+const ownerOpts = () => [['A', state.names.A], ['B', state.names.B]];
+const ownerOptsHalf = () => [...ownerOpts(), ['half', 'Wspólne (po połowie)']];
+const catOpts = () => state.categories.map((c) => [c.id, `${c.icon} ${c.name}`]);
+const splitOpts = [['half', 'Wspólny – dzielimy 50/50'], ['self', 'Osobisty – bez rozliczania']];
+const repeatOpts = [['none', 'Jednorazowe'], ['yearly', 'Co roku (np. urodziny)']];
+
+function incomeForm(item) {
+  openForm({
+    title: item ? 'Edytuj dochód' : 'Nowy dochód',
+    values: item ?? { owner: 'A' },
+    fields: [
+      { name: 'owner', label: 'Kto zarabia', type: 'select', options: ownerOpts(), required: true },
+      { name: 'name', label: 'Źródło', type: 'text', placeholder: 'np. wypłata, zlecenia', required: true },
+      { name: 'amount', label: 'Kwota miesięcznie (zł)', type: 'number', min: 0, step: '0.01', required: true },
+    ],
+    onSave: (v) => saveItem('incomes', item, v),
+  });
+}
+
+function catForm(item) {
+  openForm({
+    title: item ? 'Edytuj kategorię' : 'Nowa kategoria',
+    values: item ?? { icon: '🎯', color: PALETTE[state.categories.length % PALETTE.length], limit: 0 },
+    fields: [
+      { name: 'name', label: 'Nazwa', type: 'text', placeholder: 'np. Kosmetyki', required: true },
+      { name: 'icon', label: 'Ikona (emoji)', type: 'text', placeholder: '🎯', required: true },
+      { name: 'color', label: 'Kolor na wykresach', type: 'color', required: true },
+      { name: 'limit', label: 'Miesięczny limit (zł) – 0 = bez limitu', type: 'number', min: 0, step: '0.01', required: true },
+    ],
+    onSave: (v) => saveItem('categories', item, v),
+  });
+}
+
+function expenseForm(item) {
+  const t = today();
+  const dflt = ui.month === ymOf(t) ? t : `${ui.month}-01`;
+  openForm({
+    title: item ? 'Edytuj wydatek' : 'Nowy wydatek',
+    values: item ?? { date: dflt, paidBy: 'A', split: 'half', categoryId: state.categories[0]?.id ?? '' },
+    fields: [
+      { name: 'date', label: 'Data', type: 'date', required: true },
+      { name: 'amount', label: 'Kwota (zł)', type: 'number', min: 0.01, step: '0.01', required: true },
+      { name: 'description', label: 'Opis (opcjonalnie)', type: 'text', placeholder: 'np. zakupy w Lidlu' },
+      { name: 'categoryId', label: 'Kategoria', type: 'select', options: [['', '❔ Bez kategorii'], ...catOpts()], required: false },
+      { name: 'paidBy', label: 'Kto zapłacił', type: 'select', options: ownerOpts(), required: true },
+      { name: 'split', label: 'Rozliczenie', type: 'select', options: splitOpts },
+    ],
+    onOpen: (form) => {
+      // Podpowiedź kategorii: działa, dopóki użytkownik sam nie wybierze kategorii
+      const desc = form.elements.description, cat = form.elements.categoryId;
+      const hint = document.createElement('small');
+      hint.className = 'hint';
+      desc.closest('label').after(hint);
+      let touched = !!item;
+      cat.addEventListener('change', () => { touched = true; hint.textContent = ''; });
+      desc.addEventListener('input', () => {
+        if (touched) return;
+        const sid = suggestCategory(desc.value);
+        if (sid) { cat.value = sid; hint.textContent = `Podpowiedź: ${catInfo(sid).name} (zmień, jeśli to nie to)`; }
+        else hint.textContent = '';
+      });
+    },
+    onSave: (v) => saveItem('expenses', item, v),
+  });
+}
+
+function eventForm(item, date) {
+  openForm({
+    title: item ? 'Edytuj wydarzenie' : 'Nowe wydarzenie',
+    values: item ?? { date: date || today(), paidBy: 'A', split: 'half', repeat: 'none', categoryId: state.categories.find((c) => c.id === 'c-prezenty')?.id ?? state.categories[0]?.id ?? '' },
+    fields: [
+      { name: 'title', label: 'Wydarzenie', type: 'text', placeholder: 'np. Prezent urodzinowy dla taty', required: true },
+      { name: 'date', label: 'Data', type: 'date', required: true },
+      { name: 'amount', label: 'Szacowany koszt (zł)', type: 'number', min: 0.01, step: '0.01', required: true },
+      { name: 'categoryId', label: 'Kategoria', type: 'select', options: [['', '❔ Bez kategorii'], ...catOpts()] },
+      { name: 'repeat', label: 'Powtarzanie', type: 'select', options: repeatOpts },
+      { name: 'paidBy', label: 'Kto płaci', type: 'select', options: ownerOpts(), required: true },
+      { name: 'split', label: 'Rozliczenie', type: 'select', options: splitOpts },
+      { name: 'note', label: 'Notatka (opcjonalnie)', type: 'textarea' },
+    ],
+    onSave: (v) => saveItem('events', item, v),
+  });
+}
+
+function liabForm(item) {
+  openForm({
+    title: item ? 'Edytuj zobowiązanie' : 'Nowe zobowiązanie',
+    values: item ?? { owner: 'A', installmentsPaid: 0, dueDay: 10 },
+    fields: [
+      { name: 'name', label: 'Nazwa', type: 'text', placeholder: 'np. Rata za telefon', required: true },
+      { name: 'creditor', label: 'Wierzyciel (opcjonalnie)', type: 'text', placeholder: 'np. bank, operator, sklep' },
+      { name: 'owner', label: 'Kto spłaca', type: 'select', options: ownerOptsHalf(), required: true },
+      { name: 'installmentAmount', label: 'Kwota raty (zł)', type: 'number', min: 0.01, step: '0.01', required: true },
+      { name: 'installmentsTotal', label: 'Liczba rat łącznie', type: 'number', min: 1, step: '1', required: true },
+      { name: 'installmentsPaid', label: 'Ile rat już opłacono', type: 'number', min: 0, step: '1', required: true },
+      { name: 'dueDay', label: 'Dzień miesiąca, w którym płacicie', type: 'number', min: 1, max: 31, step: '1', required: true },
+      { name: 'note', label: 'Notatka (opcjonalnie)', type: 'textarea' },
+    ],
+    onSave: (v) => {
+      if (v.installmentsPaid > v.installmentsTotal) return 'Opłaconych rat nie może być więcej niż wszystkich.';
+      // Ręczna zmiana liczby rat unieważnia zapamiętany miesiąc – termin wyliczy się od nowa
+      if (item && v.installmentsPaid !== item.installmentsPaid) v.paidThrough = undefined;
+      saveItem('liabilities', item, v);
+    },
+  });
+}
+
+/* ===== Akcje ===== */
+function payEvent(id) {
+  const ev = byId(state.events, id);
+  if (!ev) return;
+  state.expenses.push({ id: uid(), date: today(), amount: Number(ev.amount), categoryId: ev.categoryId, description: ev.title, paidBy: ev.paidBy, split: ev.split, updatedAt: now() });
+  if (ev.repeat === 'yearly') setField('events', id, { date: addYears(ev.date, 1) });
+  else setField('events', id, { paid: true });
+  toast('Dodano do budżetu jako wydatek ✔');
+  commit();
+}
+
+function loadDemo() {
+  const hasData = state.incomes.length || state.expenses.length || state.events.length || state.liabilities.length;
+  const warn = sync.cfg ? ' Zmiana obejmie też drugi telefon.' : '';
+  if (hasData && !confirm(`Dane przykładowe zastąpią obecne dane.${warn} Kontynuować?`)) return;
+  wipe();
+  const t = today(), ym = ymOf(t), year = t.slice(0, 4), at = now();
+  const day = (n) => `${ym}-${pad(n)}`;
+  const past = (k, n) => `${addYM(ym, -k)}-${pad(n)}`;
+  const limits = { 'c-czynsz': 2400, 'c-jedzenie': 1300, 'c-transport': 400, 'c-telefon': 150, 'c-rozrywka': 350, 'c-prezenty': 300, 'c-inne': 200 };
+  state.categories.forEach((c) => { c.limit = limits[c.id] ?? 0; c.updatedAt = at + 2; });
+  const add = (coll, arr) => arr.forEach((x) => state[coll].push({ id: uid(), updatedAt: at, ...x }));
+  add('incomes', [
+    { owner: 'A', name: 'Wypłata', amount: 6500 },
+    { owner: 'B', name: 'Wypłata', amount: 5200 },
+    { owner: 'B', name: 'Dodatkowe zlecenia', amount: 800 },
+  ]);
+  const exp = [
+    { date: day(2), amount: 2400, categoryId: 'c-czynsz', description: 'Czynsz', paidBy: 'A', split: 'half' },
+    { date: day(3), amount: 312.4, categoryId: 'c-jedzenie', description: 'Zakupy tygodniowe', paidBy: 'B', split: 'half' },
+    { date: day(5), amount: 89.99, categoryId: 'c-telefon', description: 'Internet', paidBy: 'A', split: 'half' },
+    { date: day(6), amount: 120, categoryId: 'c-transport', description: 'Paliwo', paidBy: 'B', split: 'self' },
+    { date: day(9), amount: 45, categoryId: '', description: 'Różne drobiazgi', paidBy: 'A', split: 'self' },
+    { date: day(10), amount: 74, categoryId: 'c-rozrywka', description: 'Kino', paidBy: 'B', split: 'half' },
+  ];
+  // Historia z poprzednich miesięcy, żeby wykres trendu miał co pokazać
+  for (let k = 1; k <= 3; k++) {
+    exp.push({ date: past(k, 2), amount: 2400, categoryId: 'c-czynsz', description: 'Czynsz', paidBy: 'A', split: 'half' });
+    exp.push({ date: past(k, 4), amount: 980 + k * 40, categoryId: 'c-jedzenie', description: 'Zakupy tygodniowe', paidBy: 'B', split: 'half' });
+    exp.push({ date: past(k, 12), amount: 260 - k * 20, categoryId: 'c-transport', description: 'Paliwo', paidBy: 'A', split: 'self' });
+  }
+  add('expenses', exp);
+  add('events', [
+    { title: 'Urodziny mamy', date: addDays(t, 12), amount: 250, categoryId: 'c-prezenty', repeat: 'yearly', paidBy: 'A', split: 'half', note: '' },
+    { title: 'Prezenty świąteczne', date: `${year}-12-24`, amount: 600, categoryId: 'c-prezenty', repeat: 'none', paidBy: 'A', split: 'half', note: '' },
+    { title: 'Wyjazd wakacyjny – zaliczka', date: addDays(t, 150), amount: 1500, categoryId: 'c-inne', repeat: 'none', paidBy: 'B', split: 'half', note: 'Zaliczka na domek' },
+  ]);
+  add('liabilities', [
+    { name: 'Rata za telefon', creditor: 'Operator', owner: 'A', installmentAmount: 89.99, installmentsTotal: 24, installmentsPaid: 7, dueDay: 15, note: '' },
+    { name: 'Pożyczka na samochód', creditor: 'Bank', owner: 'half', installmentAmount: 612.5, installmentsTotal: 48, installmentsPaid: 20, dueDay: 5, note: '' },
+    { name: 'Laptop na raty', creditor: 'Sklep', owner: 'B', installmentAmount: 165, installmentsTotal: 12, installmentsPaid: 12, dueDay: 20, note: '' },
+  ]);
+  ui.month = ym; ui.cal = ym;
+  commit();
+  toast('Wczytano dane przykładowe');
+}
+
+// Kopia jest szyfrowana osobnym hasłem, które podajesz przy eksporcie
+async function exportData() {
+  const pw = await askSecret('Hasło do pliku kopii', true);
+  if (!pw) return;
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const box = await sealText(await deriveKey(pw, salt), JSON.stringify(state));
+  const blob = new Blob([JSON.stringify({ format: 'budzet-export', v: 1, salt: b64(salt), ...box }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: `budzet-kopia-${today()}.json` });
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast('Kopia zapisana (zaszyfrowana hasłem)');
+}
+async function openExport(doc) {
+  const pw = await askSecret('Hasło do pliku kopii', false);
+  if (!pw) return null;
+  try {
+    return JSON.parse(await openText(await deriveKey(pw, unb64(doc.salt)), doc));
+  } catch {
+    throw new Error('Nieprawidłowe hasło do pliku kopii.');
+  }
+}
+
+const actions = {
+  close: () => $('#dlg').close(),
+  monthPrev: () => { ui.month = addYM(ui.month, -1); render(); },
+  monthNext: () => { ui.month = addYM(ui.month, 1); render(); },
+  monthNow: () => { ui.month = ymOf(today()); render(); },
+  calPrev: () => { ui.cal = addYM(ui.cal, -1); render(); },
+  calNext: () => { ui.cal = addYM(ui.cal, 1); render(); },
+  calNow: () => { ui.cal = ymOf(today()); render(); },
+
+  addIncome: () => incomeForm(),
+  editIncome: (id) => incomeForm(byId(state.incomes, id)),
+  delIncome: (id) => removeItem('incomes', id, 'Usunąć ten dochód?'),
+
+  addCat: () => catForm(),
+  editCat: (id) => catForm(byId(state.categories, id)),
+  delCat: (id) => {
+    if (!confirm('Usunąć kategorię? Jej wydatki i wydarzenia zostaną bez kategorii.')) return;
+    for (const e of state.expenses) if (e.categoryId === id) { e.categoryId = ''; e.updatedAt = now(); }
+    for (const ev of state.events) if (ev.categoryId === id) { ev.categoryId = ''; ev.updatedAt = now(); }
+    deleteRecord('categories', id);
+    commit();
+  },
+
+  addExp: () => expenseForm(),
+  editExp: (id) => expenseForm(byId(state.expenses, id)),
+  delExp: (id) => removeItem('expenses', id, 'Usunąć ten wydatek?'),
+
+  addEvent: () => eventForm(),
+  addEventOn: (_id, el) => eventForm(undefined, el.dataset.date),
+  editEvent: (id) => eventForm(byId(state.events, id)),
+  delEvent: (id) => removeItem('events', id, 'Usunąć wydarzenie?'),
+  payEvent: (id) => payEvent(id),
+  restoreEvent: (id) => { setField('events', id, { paid: false }); commit(); },
+
+  addLiab: () => liabForm(),
+  editLiab: (id) => liabForm(byId(state.liabilities, id)),
+  delLiab: (id) => removeItem('liabilities', id, 'Usunąć to zobowiązanie?'),
+  payInst: (id) => {
+    const l = byId(state.liabilities, id); if (!l) return;
+    const paidMonth = l.paidThrough ? addYM(l.paidThrough, 1) : ymOf(today());
+    setField('liabilities', id, { installmentsPaid: Math.min(l.installmentsTotal, l.installmentsPaid + 1), paidThrough: paidMonth });
+    if (installmentsLeft(l) === 0) toast('🎉 Zobowiązanie spłacone w całości!');
+    commit();
+  },
+  undoInst: (id) => {
+    const l = byId(state.liabilities, id); if (!l) return;
+    setField('liabilities', id, { installmentsPaid: Math.max(0, l.installmentsPaid - 1), paidThrough: l.paidThrough ? addYM(l.paidThrough, -1) : undefined });
+    commit();
+  },
+
+  syncCreate: () => syncCreate(),
+  syncJoin: () => syncJoin(),
+  gateMode: (_id, el) => { gate = el.dataset.mode; render(); },
+  lockApp: () => lockApp(),
+  syncRun: () => { syncNow(); toast('Synchronizacja…'); },
+  syncDisconnect: () => syncDisconnect(),
+  copyCode: () => copyText(encodeCode(sync.cfg), 'Kod skopiowany ✔'),
+  copySql: () => copyText(SCHEMA_SQL, 'SQL skopiowany ✔'),
+  export: exportData,
+  importPick: () => $('#importFile').click(),
+  demo: loadDemo,
+  reset: () => {
+    if (!confirm('Na pewno usunąć wszystkie dane? Zmiana obejmie też inne połączone urządzenia.')) return;
+    wipe(); commit(); toast('Wyczyszczono dane');
+  },
+};
+
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el) return;
+  const fn = actions[el.dataset.action];
+  if (fn) fn(el.dataset.id, el);
+});
+
+document.addEventListener('change', (e) => {
+  const t = e.target;
+  const change = t.dataset?.change;
+  if (change === 'setCat') { setField('expenses', t.dataset.id, { categoryId: t.value }); commit(); return; }
+  if (change === 'catFilter') { ui.catFilter = t.value; render(); return; }
+  const k = t.dataset?.name;
+  if (k) { state.names[k] = t.value.trim() || state.names[k]; state.namesAt = now(); commit(); }
+});
+
+$('#importFile').addEventListener('change', async (e) => {
+  const input = e.target;
+  const file = input.files[0];
+  if (!file) return;
+  try {
+    let data = JSON.parse(await file.text());
+    if (data && data.format === 'budzet-export') data = await openExport(data);
+    if (data === null) return;
+    if (!data || !Array.isArray(data.expenses) || !Array.isArray(data.categories)) throw new Error('format');
+    state = mergeDocs(state, data);
+    commit();
+    toast('Dane z pliku zostały połączone ✔');
+  } catch (ex) {
+    toast(ex.message?.startsWith('Nieprawidłowe') ? ex.message : 'To nie wygląda na plik z eksportu tej aplikacji.');
+  } finally {
+    input.value = '';
+  }
+});
+
+/* ===== Synchronizacja między telefonami (Supabase) ===== */
+const SYNC_KEY = 'budzet-sync-v1';
+const SCHEMA_SQL = `-- Nasz budżet: schemat synchronizacji dla Supabase.
+-- Jak uruchomić: w panelu Supabase otwórz SQL Editor → New query → wklej całość → Run.
+
+create table if not exists public.budget_households (
+  id         text primary key,
+  doc        jsonb       not null default '{}'::jsonb,
+  version    bigint      not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+-- Włączamy RLS i NIE dodajemy polityk: klucz anon nie ma bezpośredniego dostępu do tabeli.
+alter table public.budget_households enable row level security;
+
+-- Jedyny dostęp to te dwie funkcje. Wymagają identyfikatora budżetu (32 znaki losowe),
+-- który znają tylko osoby, którym dałeś kod połączenia.
+
+create or replace function public.budget_pull(hid text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  r public.budget_households%rowtype;
+begin
+  if char_length(hid) < 16 then
+    raise exception 'invalid household id';
+  end if;
+  select * into r from public.budget_households where id = hid;
+  if not found then
+    return jsonb_build_object('version', 0, 'doc', null);
+  end if;
+  return jsonb_build_object('version', r.version, 'doc', r.doc);
+end;
+$$;
+
+create or replace function public.budget_push(hid text, base_version bigint, new_doc jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  cur public.budget_households%rowtype;
+begin
+  if char_length(hid) < 16 then
+    raise exception 'invalid household id';
+  end if;
+  select * into cur from public.budget_households where id = hid for update;
+  if not found then
+    insert into public.budget_households (id, doc, version) values (hid, new_doc, 1);
+    return jsonb_build_object('ok', true, 'version', 1);
+  end if;
+  -- Ktoś zapisał w międzyczasie: klient pobierze nowszą wersję, scali i spróbuje ponownie.
+  if cur.version <> base_version then
+    return jsonb_build_object('ok', false, 'version', cur.version);
+  end if;
+  update public.budget_households
+     set doc = new_doc, version = cur.version + 1, updated_at = now()
+   where id = hid;
+  return jsonb_build_object('ok', true, 'version', cur.version + 1);
+end;
+$$;
+
+grant execute on function public.budget_pull(text) to anon, authenticated;
+grant execute on function public.budget_push(text, bigint, jsonb) to anon, authenticated;
+`;
+
+const sync = { cfg: loadSyncCfg(), busy: false, again: false, error: '', last: null, timer: null };
+
+function loadSyncCfg() {
+  try { return JSON.parse(localStorage.getItem(SYNC_KEY)) || null; } catch { return null; }
+}
+const randomHex = (bytes) => [...crypto.getRandomValues(new Uint8Array(bytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
+// Kod zawiera sól, dzięki której drugi telefon odtworzy ten sam klucz z hasła
+const encodeCode = (cfg) => btoa(JSON.stringify({ url: cfg.url, key: cfg.key, hid: cfg.hid, salt: cfg.salt }));
+function decodeCode(code) {
+  try {
+    const o = JSON.parse(atob(code.trim()));
+    return o.url && o.key && o.hid && o.salt && o.hid.length >= 16 ? { url: o.url, key: o.key, hid: o.hid, salt: o.salt } : null;
+  } catch { return null; }
+}
+// W chmurze są tylko zaszyfrowane dane: Supabase widzi { enc: { iv, ct } }
+const sealRemote = async (s) => ({ enc: await sealText(CK, JSON.stringify(s)) });
+async function openRemote(doc) {
+  if (!doc.enc) throw new Error('Dane w chmurze są w starym formacie.');
+  try { return normalize(JSON.parse(await openText(CK, doc.enc))); }
+  catch { throw new Error('Inne hasło niż na drugim telefonie.'); }
+}
+
+// Wywołanie funkcji SQL przez REST API Supabase (bez dodatkowych bibliotek)
+async function rpc(cfg, fn, body) {
+  const headers = { apikey: cfg.key, 'Content-Type': 'application/json' };
+  if (cfg.key.startsWith('eyJ')) headers.Authorization = `Bearer ${cfg.key}`; // klucze JWT (anon); nowe klucze publishable idą samym nagłówkiem apikey
+  const res = await fetch(`${cfg.url.replace(/\/+$/, '')}/rest/v1/rpc/${fn}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`błąd serwera ${res.status}: ${(await res.text()).slice(0, 140)}`);
+  return res.json();
+}
+
+function scheduleSync() {
+  if (!sync.cfg) return;
+  clearTimeout(sync.timer);
+  sync.timer = setTimeout(syncNow, 1500);
+}
+
+// Pobierz → scal → wyślij. Gdy ktoś zapisał w międzyczasie (konflikt wersji), scalamy jeszcze raz.
+async function syncNow() {
+  if (!sync.cfg || !ready) return;
+  if (sync.busy) { sync.again = true; return; }
+  sync.busy = true;
+  sync.error = '';
+  const before = JSON.stringify(state);
+  refreshBadge();
+  try {
+    let ok = false;
+    for (let i = 0; i < 4 && !ok; i++) {
+      const remote = await rpc(sync.cfg, 'budget_pull', { hid: sync.cfg.hid });
+      if (remote.doc) state = mergeDocs(state, await openRemote(remote.doc));
+      const res = await rpc(sync.cfg, 'budget_push', { hid: sync.cfg.hid, base_version: remote.version, new_doc: await sealRemote(state) });
+      ok = res.ok === true;
+    }
+    if (!ok) throw new Error('konflikt zapisów, spróbuj ponownie');
+    sync.last = new Date();
+  } catch (err) {
+    sync.error = err instanceof TypeError ? 'brak połączenia' : err.message;
+  } finally {
+    sync.busy = false;
+    save();
+    if (JSON.stringify(state) !== before) refreshIdle();
+    else refreshBadge();
+    if (sync.again) { sync.again = false; scheduleSync(); }
+  }
+}
+
+// Nie odświeżaj ekranu, gdy ktoś wpisuje dane albo ma otwarte okno
+function refreshIdle() {
+  const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName);
+  if (!$('#dlg').open && !typing) render();
+  else refreshBadge();
+}
+
+function syncBadgeText() {
+  if (!sync.cfg) return 'tylko na tym telefonie';
+  if (sync.busy) return '⟳ synchronizacja…';
+  if (sync.error) return `⚠ ${sync.error}`;
+  return sync.last ? `✓ zsynchronizowano ${sync.last.toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}` : '✓ połączono';
+}
+function refreshBadge() {
+  const el = $('#syncBadge');
+  if (!el) return;
+  el.textContent = syncBadgeText();
+  el.classList.toggle('err', !!sync.error);
+}
+
+async function syncCreate() {
+  const url = $('#supaUrl').value.trim(), key = $('#supaKey').value.trim();
+  if (!/^https:\/\/\S+$/.test(url) || key.length < 20) return toast('Wpisz adres projektu (https://…) i klucz anon.');
+  const cfg = { url, key, hid: randomHex(16), salt: readVault().salt };
+  toast('Łączenie…');
+  try {
+    await rpc(cfg, 'budget_pull', { hid: cfg.hid });
+  } catch (err) {
+    return toast(`Nie udało się połączyć: ${err.message}`);
+  }
+  sync.cfg = cfg;
+  sync.error = '';
+  localStorage.setItem(SYNC_KEY, JSON.stringify(cfg));
+  await syncNow();
+  toast('Wspólny budżet utworzony ✔');
+  render();
+}
+
+async function syncJoin() {
+  const code = $('#joinCode').value.trim(), pw = $('#joinPw').value;
+  if (!code || pw.length < 8) return toast('Wklej kod i wpisz hasło (min. 8 znaków).');
+  toast('Dołączanie…');
+  try {
+    await joinWithCode(code, pw);
+  } catch (err) {
+    return toast(err.message);
+  }
+  await syncNow();
+  toast('Połączono z budżetem partnera ✔');
+  render();
+}
+
+function syncDisconnect() {
+  if (!confirm('Odłączyć to urządzenie? Dane zostaną na telefonie, ale przestaną się synchronizować.')) return;
+  sync.cfg = null; sync.error = ''; sync.last = null;
+  localStorage.removeItem(SYNC_KEY);
+  render();
+  toast('Odłączono synchronizację');
+}
+
+async function copyText(text, okMsg) {
+  try { await navigator.clipboard.writeText(text); toast(okMsg); }
+  catch { toast('Nie udało się skopiować – zaznacz tekst i skopiuj ręcznie.'); }
+}
+
+function syncSection() {
+  if (!sync.cfg) return `
+    <section class="card">
+      <h2>Synchronizacja między telefonami</h2>
+      <p class="muted">Dane są szyfrowane Waszym hasłem, więc w Supabase widać tylko zaszyfrowany zapis. Potrzebujesz darmowego projektu w Supabase (instrukcja poniżej). Bez tego aplikacja działa lokalnie.</p>
+      <h3>Utwórz wspólny budżet (pierwszy telefon)</h3>
+      <label class="field"><span>Adres projektu Supabase (Project URL)</span><input id="supaUrl" placeholder="https://xxxx.supabase.co"></label>
+      <label class="field"><span>Klucz anon (public)</span><input id="supaKey" placeholder="eyJhbGciOi…"></label>
+      <div class="actions"><button class="primary" data-action="syncCreate">Utwórz</button></div>
+      <h3>Dołącz do budżetu partnera (drugi telefon)</h3>
+      <label class="field"><span>Kod połączenia</span><textarea id="joinCode" rows="2" placeholder="kod z pierwszego telefonu"></textarea></label>
+      <label class="field"><span>Hasło do danych (takie samo jak u partnera)</span><input id="joinPw" type="password" autocomplete="current-password"></label>
+      <div class="actions"><button class="primary" data-action="syncJoin">Dołącz</button></div>
+      <details>
+        <summary>Jak przygotować Supabase (ok. 5 minut, za darmo)</summary>
+        <ol>
+          <li>Wejdź na supabase.com, załóż konto i utwórz nowy projekt (dowolna nazwa i region).</li>
+          <li>W projekcie otwórz <b>SQL Editor → New query</b>, wklej poniższy kod i kliknij <b>Run</b>.</li>
+          <li>Przejdź do <b>Project Settings → API</b>. Skopiuj <b>Project URL</b> i klucz <b>anon public</b> do pól powyżej.</li>
+        </ol>
+        <button class="ghost small" data-action="copySql">Kopiuj SQL</button>
+        <pre class="sql">${esc(SCHEMA_SQL)}</pre>
+      </details>
+      <p class="muted">Uwaga: kod połączenia daje dostęp do zaszyfrowanych danych, a hasło jest potrzebne do ich odczytania. Nie wysyłaj kodu w publicznym miejscu.</p>
+    </section>`;
+  return `
+    <section class="card">
+      <h2>Synchronizacja</h2>
+      <p>${esc(syncBadgeText())}</p>
+      <label class="field"><span>Kod połączenia dla partnera (nie udostępniaj publicznie)</span><textarea id="code" rows="2" readonly>${esc(encodeCode(sync.cfg))}</textarea></label>
+      <div class="actions">
+        <button class="primary" data-action="syncRun">Synchronizuj teraz</button>
+        <button class="ghost" data-action="copyCode">Kopiuj kod</button>
+        <button class="ghost danger" data-action="syncDisconnect">Odłącz to urządzenie</button>
+      </div>
+    </section>`;
+}
+
+/* ===== Ekran startowy: ustawienie hasła, dołączanie, odblokowanie ===== */
+const pwField = (name, label, auto, minLen) => `<label class="field"><span>${esc(label)}</span><input type="password" name="${name}" required autocomplete="${auto}"${minLen ? ` minlength="${minLen}"` : ''}></label>`;
+
+function renderGate() {
+  $('#nav').innerHTML = '';
+  refreshBadge();
+  const legacy = localStorage.getItem(LEGACY_KEY);
+  let body;
+  if (gate === 'error') {
+    body = `<h2>Nie można uruchomić aplikacji</h2><p>${esc(gateError)}</p>`;
+  } else if (gate === 'unlock') {
+    body = `<h2>🔐 Podaj hasło do danych</h2>
+      <p class="muted">Wpisujesz je raz na tym telefonie. Potem aplikacja otwiera się od razu.</p>
+      <form id="gateForm" data-mode="unlock">
+        ${pwField('pw', 'Hasło', 'current-password')}
+        <p class="err" hidden></p>
+        <div class="actions"><button class="primary">Odblokuj</button></div>
+      </form>
+      <p class="center"><button class="ghost small" data-action="gateMode" data-mode="join">Dołączam do budżetu partnera</button></p>`;
+  } else if (gate === 'join') {
+    body = `<h2>🔗 Dołącz do budżetu partnera</h2>
+      <p class="muted">Wklej kod połączenia od partnera i wpisz wspólne hasło. Musi być takie samo jak na jego telefonie.</p>
+      <form id="gateForm" data-mode="join">
+        <label class="field"><span>Kod połączenia</span><textarea name="code" rows="2" required></textarea></label>
+        ${pwField('pw', 'Hasło do danych', 'current-password')}
+        <p class="err" hidden></p>
+        <div class="actions"><button class="primary">Dołącz</button></div>
+      </form>
+      <p class="center"><button class="ghost small" data-action="gateMode" data-mode="setup">Zakładam nowy budżet</button></p>`;
+  } else {
+    body = `<h2>🔐 Ustaw hasło do danych</h2>
+      <p class="muted">Hasło chroni dane na tym telefonie i w synchronizacji. Pytamy o nie tylko raz, potem telefon je pamięta. <b>Nie da się go odzyskać</b>, więc zapisz je w menedżerze haseł.</p>
+      ${legacy ? '<p><span class="tag warn">Znaleziono dane z poprzedniej wersji. Zostaną zaszyfrowane tym hasłem.</span></p>' : ''}
+      <form id="gateForm" data-mode="setup">
+        ${pwField('pw', 'Hasło (min. 8 znaków)', 'new-password', 8)}
+        ${pwField('pw2', 'Powtórz hasło', 'new-password', 8)}
+        <p class="err" hidden></p>
+        <div class="actions"><button class="primary">Zapisz hasło i zacznij</button></div>
+      </form>
+      <p class="center"><button class="ghost small" data-action="gateMode" data-mode="join">Dołączam do budżetu partnera</button></p>`;
+  }
+  $('#app').innerHTML = `<section class="card gate">${body}</section>`;
+}
+
+async function setupNew(pw) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  await createVault(await deriveKey(pw, salt), salt);
+  const legacy = localStorage.getItem(LEGACY_KEY);
+  state = legacy ? normalize(JSON.parse(legacy)) : defaults();
+  ready = true;
+  save();
+  await saveChain;
+  if (legacy) localStorage.removeItem(LEGACY_KEY);
+}
+
+// Dołączenie do budżetu partnera: hasło sprawdzamy na danych z chmury, zanim zapiszemy klucz
+async function joinWithCode(code, pw) {
+  const cfg = decodeCode(code);
+  if (!cfg) throw new Error('Ten kod połączenia nie wygląda poprawnie.');
+  const salt = unb64(cfg.salt);
+  const key = await deriveKey(pw, salt);
+  const remote = await rpc(cfg, 'budget_pull', { hid: cfg.hid });
+  let remoteState = null;
+  if (remote.doc) {
+    if (!remote.doc.enc) throw new Error('Dane w chmurze są w starym formacie.');
+    try { remoteState = normalize(JSON.parse(await openText(key, remote.doc.enc))); }
+    catch { throw new Error('Hasło nie pasuje do tego budżetu. Sprawdź je u partnera.'); }
+  }
+  await createVault(key, salt);
+  const legacy = localStorage.getItem(LEGACY_KEY);
+  if (!ready) state = defaults();
+  if (legacy) state = mergeDocs(state, normalize(JSON.parse(legacy)));
+  if (remoteState) state = mergeDocs(state, remoteState);
+  ready = true;
+  sync.cfg = cfg;
+  sync.error = '';
+  localStorage.setItem(SYNC_KEY, JSON.stringify(cfg));
+  save();
+  await saveChain;
+  if (legacy) localStorage.removeItem(LEGACY_KEY);
+}
+
+async function lockApp() {
+  if (!confirm('Zablokować aplikację na tym telefonie? Przy następnym otwarciu trzeba będzie podać hasło.')) return;
+  await idbDelKey();
+  CK = null;
+  ready = false;
+  state = defaults();
+  gate = 'unlock';
+  render();
+}
+
+// Okno z hasłem (do kopii zapasowej); zwraca hasło albo null, gdy anulowano
+function askSecret(title, withConfirm) {
+  return new Promise((resolve) => {
+    let done = false;
+    const fields = [{ name: 'pw', label: 'Hasło', type: 'password', required: true }];
+    if (withConfirm) fields.push({ name: 'pw2', label: 'Powtórz hasło', type: 'password', required: true });
+    openForm({
+      title,
+      fields,
+      onSave: (v) => {
+        if (withConfirm && v.pw.length < 8) return 'Hasło musi mieć co najmniej 8 znaków.';
+        if (withConfirm && v.pw !== v.pw2) return 'Hasła różnią się.';
+        done = true;
+        resolve(v.pw);
+      },
+    });
+    $('#dlg').addEventListener('close', () => { if (!done) resolve(null); }, { once: true });
+  });
+}
+
+document.addEventListener('submit', async (e) => {
+  const form = e.target;
+  if (form.id !== 'gateForm') return;
+  e.preventDefault();
+  if (!form.reportValidity()) return;
+  const f = form.elements;
+  const err = form.querySelector('.err');
+  const fail = (m) => { err.textContent = m; err.hidden = false; };
+  err.hidden = true;
+  try {
+    if (form.dataset.mode === 'setup') {
+      if (f.pw.value !== f.pw2.value) return fail('Hasła różnią się.');
+      await setupNew(f.pw.value);
+    } else if (form.dataset.mode === 'join') {
+      await joinWithCode(f.code.value.trim(), f.pw.value);
+    } else {
+      if (!(await unlockWith(f.pw.value))) return fail('Złe hasło.');
+      await openData();
+    }
+    render();
+    if (sync.cfg) syncNow();
+  } catch (ex) {
+    fail(ex.message || 'Coś poszło nie tak.');
+  }
+});
+
+async function init() {
+  // Rejestrujemy service worker od razu, także na ekranie startowym (offline działa od pierwszego otwarcia)
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+  if (!window.crypto?.subtle || !window.indexedDB) {
+    gate = 'error';
+    gateError = 'Ta przeglądarka nie obsługuje szyfrowania. Otwórz aplikację pod adresem https (np. z GitHub Pages).';
+    return render();
+  }
+  if (!readVault()) {
+    gate = 'setup';
+    return render();
+  }
+  try {
+    const key = await idbGetKey();
+    if (key) { CK = key; await openData(); }
+    else gate = 'unlock';
+  } catch (ex) {
+    gate = 'error';
+    gateError = `Nie udało się odczytać danych: ${ex.message}`;
+  }
+  render();
+  if (ready && sync.cfg) syncNow();
+}
+
+let toastTimer;
+function toast(msg) {
+  const el = $('#toast');
+  el.textContent = msg;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 2600);
+}
+
+window.addEventListener('hashchange', render);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && sync.cfg) syncNow(); });
+setInterval(() => { if (sync.cfg && document.visibilityState === 'visible') syncNow(); }, 30000);
+init();
+</script>
+</body>
+</html>
