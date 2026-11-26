@@ -64,3 +64,72 @@ $$;
 
 grant execute on function public.budget_pull(text) to anon, authenticated;
 grant execute on function public.budget_push(text, bigint, jsonb) to anon, authenticated;
+
+-- Zdjęcia zakupów: zapisywane osobno, raz, już zaszyfrowane po stronie aplikacji
+create table if not exists public.budget_photos (
+  hid        text        not null,
+  pid        text        not null,
+  data       text        not null,
+  created_at timestamptz not null default now(),
+  primary key (hid, pid)
+);
+
+alter table public.budget_photos enable row level security;
+
+create or replace function public.budget_put_photo(hid text, pid text, data text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if char_length(hid) < 16 or char_length(pid) < 8 then
+    raise exception 'invalid id';
+  end if;
+  if char_length(data) > 3000000 then
+    raise exception 'photo too large';
+  end if;
+  insert into public.budget_photos as bp (hid, pid, data)
+  values (budget_put_photo.hid, budget_put_photo.pid, budget_put_photo.data)
+  on conflict on constraint budget_photos_pkey do update set data = excluded.data;
+  return true;
+end;
+$$;
+
+create or replace function public.budget_get_photo(hid text, pid text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  d text;
+begin
+  if char_length(hid) < 16 or char_length(pid) < 8 then
+    raise exception 'invalid id';
+  end if;
+  select bp.data into d from public.budget_photos bp
+   where bp.hid = budget_get_photo.hid and bp.pid = budget_get_photo.pid;
+  return d;
+end;
+$$;
+
+create or replace function public.budget_delete_photo(hid text, pid text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if char_length(hid) < 16 or char_length(pid) < 8 then
+    raise exception 'invalid id';
+  end if;
+  delete from public.budget_photos bp
+   where bp.hid = budget_delete_photo.hid and bp.pid = budget_delete_photo.pid;
+  return true;
+end;
+$$;
+
+grant execute on function public.budget_put_photo(text, text, text) to anon, authenticated;
+grant execute on function public.budget_get_photo(text, text) to anon, authenticated;
+grant execute on function public.budget_delete_photo(text, text) to anon, authenticated;
