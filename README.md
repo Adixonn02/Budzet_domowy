@@ -101,9 +101,15 @@ Gałąź `android-apk` buduje APK w GitHub Actions. Instalacja:
 2. Na telefonie rozpakuj ZIP (np. w aplikacji Pliki) i otwórz `app-debug.apk`.
 3. Gdy system zapyta, zezwól na instalację z tego źródła (w Pliki albo przeglądarce).
 
-**Aktualizacja.** APK jest podpisany kluczem debug, który przy każdym budowaniu jest inny. Nowa wersja nie nadpisze starej, więc:
+**Podpis.** APK jest podpisany stałym kluczem z sekretów repozytorium GitHub. Kolejne wersje z tym samym kluczem instalują się nad poprzednimi i zachowują dane. Odcisk klucza widać w logu budowania (krok „Sprawdź podpis APK”).
+
+**Przejście z wersji debug.** Wcześniejsza wersja była podpisana kluczem debug, więc przy pierwszej instalacji wersji ze stałym kluczem trzeba raz odinstalować starą aplikację:
 1. Zrób kopię: Ustawienia → **Eksportuj do pliku**.
 2. Odinstaluj starą aplikację (to kasuje jej dane).
 3. Zainstaluj nowy APK, ustaw hasło i zaimportuj kopię.
+
+Przy kolejnych aktualizacjach ten krok nie będzie potrzebny.
+
+**Klucz podpisu (tylko właściciel).** Plik klucza i hasła trzymajcie w menedżerze haseł. Utrata klucza oznacza, że nie da się już wydać aktualizacji, którą system zainstaluje nad obecną wersją.
 
 Artefakty GitHub wygasają po 30 dniach. Trwały link do APK wymaga wydania (Release), którego jeszcze nie ma.

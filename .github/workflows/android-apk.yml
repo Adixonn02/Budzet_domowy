@@ -24,20 +24,50 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Sprawdź sekrety klucza podpisu
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          for v in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [ -z "${!v}" ]; then
+              echo "Brak sekretu $v. Dodaj go w: Settings → Secrets and variables → Actions."
+              exit 1
+            fi
+          done
+          echo "$KEYSTORE_BASE64" | base64 -d > "$GITHUB_WORKSPACE/android/app/release.keystore"
+
       - name: Zainstaluj zależności
         run: npm ci
 
       - name: Przygotuj pliki aplikacji i zsynchronizuj Androida
         run: npm run cap:sync
 
-      - name: Zbuduj APK (debug)
+      - name: Zbuduj APK (release, podpisany stałym kluczem)
         working-directory: android
+        env:
+          KEYSTORE_FILE: ${{ github.workspace }}/android/app/release.keystore
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Sprawdź podpis APK
+        run: |
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)
+          "$APKSIGNER" verify --print-certs "$APK"
+
+      - name: Usuń klucz z maszyny
+        if: always()
+        run: rm -f "$GITHUB_WORKSPACE/android/app/release.keystore"
 
       - uses: actions/upload-artifact@v4
         with:
           name: nasz-budzet-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 30
