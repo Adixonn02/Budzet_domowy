@@ -1,0 +1,7 @@
+{
+  "appId": "pl.budzet.domowy",
+  "appName": "Nasz budżet",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false, "backgroundColor": "#f4f3ee" }
+}
