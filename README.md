@@ -92,3 +92,18 @@ Przechowuj kopie w bezpiecznym miejscu. Nawet zaszyfrowana kopia jest bezwartoś
 - **Rozliczenie**: wydatki „Wspólny 50/50” dzielicie po połowie. Saldo pokazuje, kto komu oddaje różnicę. Wydatki „Osobiste” się nie rozliczają.
 - **Raty**: następna płatność to najbliższy wybrany dzień miesiąca. Opłacenie raty przed terminem przesuwa termin na kolejny miesiąc.
 - **Limit 0** oznacza brak limitu.
+
+## Aplikacja na Androida (APK)
+
+Gałąź `android-apk` buduje APK w GitHub Actions. Instalacja:
+
+1. Wejdź na https://github.com/Adixonn02/Budzet_domowy/actions, otwórz najnowsze uruchomienie **Zbuduj APK** (zielony znacznik) i w sekcji **Artifacts** pobierz `nasz-budzet-apk`. Pobierze się archiwum ZIP.
+2. Na telefonie rozpakuj ZIP (np. w aplikacji Pliki) i otwórz `app-debug.apk`.
+3. Gdy system zapyta, zezwól na instalację z tego źródła (w Pliki albo przeglądarce).
+
+**Aktualizacja.** APK jest podpisany kluczem debug, który przy każdym budowaniu jest inny. Nowa wersja nie nadpisze starej, więc:
+1. Zrób kopię: Ustawienia → **Eksportuj do pliku**.
+2. Odinstaluj starą aplikację (to kasuje jej dane).
+3. Zainstaluj nowy APK, ustaw hasło i zaimportuj kopię.
+
+Artefakty GitHub wygasają po 30 dniach. Trwały link do APK wymaga wydania (Release), którego jeszcze nie ma.
