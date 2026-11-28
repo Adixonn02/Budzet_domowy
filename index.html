@@ -1119,6 +1119,17 @@ function liabForm(item) {
 }
 
 /* ===== Akcje ===== */
+// Usuwa wydatki (płatności) powiązane z wydarzeniem, razem z ich zdjęciami i produktami
+function dropLinkedExpenses(eventId) {
+  for (const x of state.expenses.filter((e) => e.eventId === eventId)) {
+    const pids = photosOf(x.id).map((p) => p.id);
+    deleteRecord('expenses', x.id);
+    pids.forEach((pid) => deleteRecord('photos', pid));
+    state.items.filter((i) => i.expenseId === x.id).forEach((i) => deleteRecord('items', i.id));
+    dropPhotos(pids);
+  }
+}
+
 // Wydarzenie opłacone (przyciskiem albo wydatkiem): jednorazowe znika z planu, cykliczne przechodzi na kolejny rok
 function settleEvent(ev) {
   if (ev.repeat === 'yearly') ev.date = addYears(ev.date, 1);
@@ -1281,9 +1292,28 @@ const actions = {
   addEvent: () => eventForm(),
   addEventOn: (_id, el) => eventForm(undefined, el.dataset.date),
   editEvent: (id) => eventForm(byId(state.events, id)),
-  delEvent: (id) => removeItem('events', id, 'Usunąć wydarzenie?'),
+  delEvent: (id) => {
+    const ev = byId(state.events, id);
+    if (!ev) return;
+    const linked = state.expenses.filter((x) => x.eventId === id);
+    const total = linked.reduce((a, x) => a + (Number(x.amount) || 0), 0);
+    const msg = linked.length
+      ? `Usunąć wydarzenie? Powiązana płatność (${money(total)}) też zostanie usunięta, a pieniądze wrócą do budżetu.`
+      : 'Usunąć wydarzenie?';
+    if (!confirm(msg)) return;
+    dropLinkedExpenses(id);
+    deleteRecord('events', id);
+    commit();
+  },
   payEvent: (id) => payEvent(id),
-  restoreEvent: (id) => { setField('events', id, { paid: false }); commit(); },
+  // Przywróć = cofnij płatność: usuwa wydatek, a wydarzenie wraca do planu (bez podwójnego liczenia)
+  restoreEvent: (id) => {
+    const ev = byId(state.events, id);
+    if (!ev || !confirm('Cofnąć płatność? Wydatek zostanie usunięty, a wydarzenie wróci do planu.')) return;
+    dropLinkedExpenses(id);
+    setField('events', id, { paid: false });
+    commit();
+  },
 
   addLiab: () => liabForm(),
   editLiab: (id) => liabForm(byId(state.liabilities, id)),
