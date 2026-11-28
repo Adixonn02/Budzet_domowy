@@ -132,6 +132,35 @@ details.card .card{margin-top:10px}
 .gate .tag{margin:6px 0}
 .gate .center{margin-top:12px}
 h3{margin:14px 0 4px}
+.report-summary{font-size:16px;line-height:1.5;padding:12px;border-radius:12px;background:var(--soft);margin:10px 0}
+.report-ready{border-left:4px solid var(--warn)}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:10px 0}
+.gallery figure{margin:0;display:flex;flex-direction:column;gap:6px}
+.gallery img,.gallery .ph{width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+.gallery .ph{display:flex;align-items:center;justify-content:center;text-align:center;font-size:13px;padding:6px;color:var(--muted)}
+.uplabel{display:inline-flex;align-items:center;cursor:pointer;line-height:1.2}
+.ocr{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;background:var(--bg)}
+.ocr h3{margin:0 0 6px}
+.ocr-row{display:grid;grid-template-columns:minmax(0,1fr) 92px auto;gap:6px;align-items:center;margin:6px 0}
+.ocr-row input{padding:8px 10px}
+.items .row{padding:8px 0}
+#photoDlg{max-width:min(600px,calc(100vw - 24px))}
+.cmp{height:8px;background:var(--bar);border-radius:99px;overflow:hidden;margin-top:5px}
+.cmp i{display:block;height:100%;border-radius:99px}
+.cmp.was{height:4px;margin-top:3px}
+.cmp.was i{background:var(--muted);opacity:.6}
+.up{color:var(--danger)}
+.down{color:var(--ok)}
+.hb small{color:var(--muted)}
+@media print{
+  body{background:#fff;color:#000}
+  header.top,.no-print,.monthnav{display:none!important}
+  main{max-width:none;padding:0}
+  .card,.stat{border:1px solid #bbb;box-shadow:none;break-inside:avoid}
+  .stat.hero{background:#eee;color:#000}
+  .stat.hero span,.stat.hero small{opacity:1}
+  .bar,.track,.cmp{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
 details summary{cursor:pointer;font-weight:600;margin:6px 0}
 details ol{padding-left:20px;margin:8px 0}
 details li{margin:4px 0}
@@ -154,6 +183,7 @@ pre.sql{white-space:pre;overflow:auto;max-width:100%;background:var(--bg);border
 <header class="top"><div class="topbar"><div class="brand">🏠 Nasz budżet</div><span id="syncBadge" class="sync"></span><nav id="nav"></nav></div></header>
 <main id="app"></main>
 <dialog id="dlg"><form id="dlgForm"></form></dialog>
+<dialog id="photoDlg"><div id="photoBody"></div></dialog>
 <div id="toast" class="toast" hidden></div>
 <input type="file" id="importFile" accept=".json,application/json" hidden>
 
@@ -162,9 +192,9 @@ pre.sql{white-space:pre;overflow:auto;max-width:100%;background:var(--bg);border
 
 /* ===== Stałe ===== */
 const KEY = 'budzet-domowy-v1';
-const TABS = [['przeglad','Przegląd'],['budzet','Budżet'],['wykresy','Wykresy'],['kalendarz','Kalendarz'],['zobowiazania','Zobowiązania'],['ustawienia','Ustawienia']];
+const TABS = [['przeglad','Przegląd'],['budzet','Budżet'],['wykresy','Wykresy'],['raport','Raport'],['kalendarz','Kalendarz'],['zobowiazania','Zobowiązania'],['ustawienia','Ustawienia']];
 const WEEKDAYS = ['Pn','Wt','Śr','Cz','Pt','So','Nd'];
-const COLLS = ['incomes','categories','expenses','events','liabilities'];
+const COLLS = ['incomes','categories','expenses','events','liabilities','photos','items'];
 const PALETTE = ['#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f','#edc948','#b07aa1','#ff9da7','#9c755f','#7f7f7f'];
 const NONE = { id: '__none', name: 'Bez kategorii', icon: '❔', color: '#9aa19d' };
 const DEFAULT_CATS = [
@@ -224,6 +254,8 @@ const defaults = () => ({
   expenses: [],
   events: [],
   liabilities: [],
+  photos: [],
+  items: [],
   tombstones: [],
 });
 const withTime = (arr) => (Array.isArray(arr) ? arr : []).map((x) => ({ updatedAt: 0, ...x }));
@@ -242,11 +274,13 @@ function normalize(s) {
     expenses: withTime(s.expenses),
     events: withTime(s.events),
     liabilities: withTime(s.liabilities),
+    photos: withTime(s.photos),
+    items: withTime(s.items),
     tombstones: Array.isArray(s.tombstones) ? s.tombstones : [],
   };
 }
 let state = defaults();
-const ui = { month: ymOf(today()), cal: ymOf(today()), catFilter: 'all' };
+const ui = { month: ymOf(today()), cal: ymOf(today()), catFilter: 'all', report: addYM(ymOf(today()), -1) };
 
 /* ===== Szyfrowanie: hasło → klucz AES-GCM, zapisany w IndexedDB jako klucz nieeksportowalny ===== */
 const VAULT_KEY = 'budzet-vault-v1'; // sól i sprawdzenie hasła (bez samego klucza)
@@ -369,10 +403,10 @@ function mergeDocs(a, b) {
 // Czyści wszystkie dane (zapisując usunięcia), zostawia kategorie domyślne.
 function wipe() {
   const at = now();
-  for (const c of ['incomes', 'expenses', 'events', 'liabilities']) for (const it of state[c]) state.tombstones.push({ c, id: it.id, at });
+  for (const c of ['incomes', 'expenses', 'events', 'liabilities', 'photos', 'items']) for (const it of state[c]) state.tombstones.push({ c, id: it.id, at });
   for (const c of state.categories) state.tombstones.push({ c: 'categories', id: c.id, at });
   const d = defaults();
-  state.incomes = []; state.expenses = []; state.events = []; state.liabilities = [];
+  state.incomes = []; state.expenses = []; state.events = []; state.liabilities = []; state.photos = []; state.items = [];
   state.categories = d.categories.map((c) => ({ ...c, updatedAt: at + 1 }));
   state.names = d.names; state.namesAt = at + 1;
 }
@@ -571,6 +605,114 @@ function upcomingCard() {
   </section>`;
 }
 
+/* ===== Raport miesięczny ===== */
+const REPORT_SEEN_KEY = 'budzet-report-seen'; // który raport już pokazano na tym telefonie (bez danych finansowych)
+const reportSeen = () => { try { return localStorage.getItem(REPORT_SEEN_KEY); } catch { return null; } };
+const markReportSeen = (ym) => { try { localStorage.setItem(REPORT_SEEN_KEY, ym); } catch { /* brak zapisu – raport pokaże się ponownie */ } };
+
+function monthReport(ym) {
+  const prev = addYM(ym, -1);
+  const list = monthExpenses(ym), before = monthExpenses(prev);
+  const cur = groupTotals(list), old = groupTotals(before);
+  const total = sum(list, (e) => e.amount), prevTotal = sum(before, (e) => e.amount);
+  const keys = [...new Set([...Object.keys(cur), ...Object.keys(old)])];
+  const rows = keys.map((k) => {
+    const c = k === NONE.id ? NONE : catInfo(k);
+    const now = cur[k] || 0, was = old[k] || 0, diff = now - was;
+    return { id: k, icon: c.icon, name: c.name, color: c.color, limit: c.limit || 0, now, was, diff, pct: was ? (diff / was) * 100 : null };
+  }).sort((a, b) => b.now - a.now || b.was - a.was);
+  const diffTotal = total - prevTotal;
+  return {
+    ym, prev, total, prevTotal, diffTotal,
+    pctTotal: prevTotal ? (diffTotal / prevTotal) * 100 : null,
+    count: list.length, prevCount: before.length,
+    rows,
+    risers: rows.filter((r) => r.diff > 0).sort((a, b) => b.diff - a.diff),
+    fallers: rows.filter((r) => r.diff < 0).sort((a, b) => a.diff - b.diff),
+    overLimit: rows.filter((r) => r.limit > 0 && r.now > r.limit),
+    biggest: list.reduce((m, e) => (!m || Number(e.amount) > Number(m.amount) ? e : m), null),
+  };
+}
+
+function reportSummary(r) {
+  if (!r.count && !r.prevCount) return 'Brak wydatków w tym miesiącu i w poprzednim, więc nie ma czego podsumować.';
+  if (!r.prevCount) return `Wydaliście ${money(r.total)}. Brak wydatków w poprzednim miesiącu, więc nie ma z czym porównać.`;
+  const parts = [];
+  if (r.diffTotal === 0) {
+    parts.push(`Wydaliście ${money(r.total)} – dokładnie tyle samo co w poprzednim miesiącu (${ymLabel(r.prev).toLowerCase()}).`);
+  } else {
+    const pct = r.pctTotal !== null ? ` (${Math.abs(r.pctTotal).toFixed(0)}%)` : '';
+    const dir = r.diffTotal > 0 ? 'więcej' : 'mniej';
+    parts.push(`Wydaliście ${money(r.total)}. To ${money(Math.abs(r.diffTotal))}${pct} ${dir} niż w poprzednim miesiącu (${ymLabel(r.prev).toLowerCase()}).`);
+  }
+  if (r.risers[0]) parts.push(`Najbardziej wzrosło: ${r.risers[0].name} (+${money(r.risers[0].diff)}).`);
+  if (r.fallers[0]) parts.push(`Najbardziej spadło: ${r.fallers[0].name} (−${money(Math.abs(r.fallers[0].diff))}).`);
+  if (r.overLimit.length) parts.push(`Ponad limit: ${r.overLimit.map((x) => x.name).join(', ')}.`);
+  return parts.join(' ');
+}
+
+function changeText(row) {
+  if (!row.was && !row.now) return '';
+  if (!row.was) return '<span class="up">nowa w tym miesiącu</span>';
+  if (!row.now) return '<span class="down">brak w tym miesiącu</span>';
+  if (row.diff === 0) return '<span class="muted">bez zmian</span>';
+  const sign = row.diff > 0 ? '+' : '−';
+  return `<span class="${row.diff > 0 ? 'up' : 'down'}">${sign}${money(Math.abs(row.diff))} (${sign}${Math.abs(row.pct).toFixed(0)}%)</span>`;
+}
+
+// Karta na ekranie startowym: pojawia się po zakończeniu miesiąca, dopóki raport nie zostanie otwarty lub ukryty
+function reportCard() {
+  const prev = addYM(ymOf(today()), -1);
+  if (reportSeen() === prev || !monthExpenses(prev).length) return '';
+  return `<section class="card report-ready">
+    <div class="head"><h2>📊 Raport za ${esc(ymLabel(prev).toLowerCase())} jest gotowy</h2></div>
+    <p class="muted">Zobacz, na co poszły pieniądze w poszczególnych kategoriach, i porównaj z poprzednim miesiącem.</p>
+    <div class="actions">
+      <button class="primary" data-action="openReport" data-month="${prev}">Otwórz raport</button>
+      <button class="ghost" data-action="dismissReport" data-month="${prev}">Ukryj</button>
+    </div>
+  </section>`;
+}
+
+function viewReport() {
+  const ym = ui.report;
+  const r = monthReport(ym);
+  const max = Math.max(1, ...r.rows.map((x) => Math.max(x.now, x.was)));
+  const moved = r.rows.filter((x) => x.diff !== 0).sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff)).slice(0, 6);
+  const diffSign = r.diffTotal > 0 ? '+' : r.diffTotal < 0 ? '−' : '';
+  return `
+    ${monthNav(ym, 'rep')}
+    <section class="card">
+      <div class="head"><h2>Raport: ${esc(ymLabel(ym))}</h2><button class="ghost small no-print" data-action="printReport">🖨 Drukuj / zapisz PDF</button></div>
+      <p class="report-summary">${esc(reportSummary(r))}</p>
+      <div class="stats">
+        ${stat(`Wydano – ${ymLabel(ym)}`, money(r.total), `${r.count} wydatków`)}
+        ${stat(`Wydano – ${ymLabel(r.prev)}`, money(r.prevTotal), `${r.prevCount} wydatków`)}
+        ${stat('Różnica', `${diffSign}${money(Math.abs(r.diffTotal))}`, r.pctTotal !== null ? `${r.pctTotal > 0 ? '+' : ''}${r.pctTotal.toFixed(0)}% wobec poprzedniego miesiąca` : 'brak danych do porównania')}
+        ${stat('Największy wydatek', r.biggest ? money(r.biggest.amount) : '—', r.biggest ? (r.biggest.description || catInfo(r.biggest.categoryId).name) : '')}
+      </div>
+    </section>
+    <section class="card">
+      <h2>Wydatki w kategoriach</h2>
+      <p class="muted">Ciemny pasek: ${esc(ymLabel(ym))}. Jasny pasek: ${esc(ymLabel(r.prev))}.</p>
+      ${r.rows.length ? r.rows.map((row) => `<div class="hb">
+          <div class="rowline"><span><i class="dot" style="background:${row.color}"></i>${esc(row.icon)} ${esc(row.name)}</span>
+            <span><b>${money(row.now)}</b> <small>${changeText(row)}</small>${row.limit && row.now > row.limit ? ' <span class="tag warn">ponad limit</span>' : ''}</span></div>
+          <div class="cmp"><i style="width:${(row.now / max) * 100}%;background:${row.color}"></i></div>
+          <div class="cmp was"><i style="width:${(row.was / max) * 100}%"></i></div>
+        </div>`).join('') : empty('Brak wydatków w tych miesiącach.')}
+      <div class="total"><span>Razem</span><b>${money(r.total)}</b></div>
+    </section>
+    <section class="card">
+      <h2>Co się zmieniło</h2>
+      ${moved.length ? moved.map((row) => `<div class="row">
+          <div class="grow"><b>${esc(row.icon)} ${esc(row.name)}</b><small class="muted">${money(row.was)} → ${money(row.now)}</small></div>
+          <div class="right">${changeText(row)}</div>
+        </div>`).join('') : empty('Bez zmian względem poprzedniego miesiąca.')}
+    </section>
+    <p class="muted center no-print">Raport liczony automatycznie z wydatków zapisanych w aplikacji.</p>`;
+}
+
 /* ===== Widoki ===== */
 function viewDashboard() {
   const ym = ui.month;
@@ -581,6 +723,7 @@ function viewDashboard() {
   const rows = [...state.categories, ...(map[NONE.id] ? [NONE] : [])];
   return `
     ${upcomingCard()}
+    ${reportCard()}
     ${monthNav(ym, 'month')}
     <section class="stats">
       <div class="stat hero ${free < 0 ? 'neg' : ''}"><span>Do dyspozycji po opłatach i odkładaniu</span><b>${money(free)}</b><small>dochody − raty − limity − rezerwa na wydarzenia</small></div>
@@ -610,10 +753,10 @@ function viewBudget() {
   const del = (act, id) => `<button class="ghost small danger" data-action="${act}" data-id="${id}">Usuń</button>`;
   const expRow = (e) => `<div class="row">
       <div class="grow"><b>${esc(e.description || catInfo(e.categoryId).name)}</b>
-        <small class="muted">${fmtDate(e.date)} · płatnik: ${esc(nameOf(e.paidBy))} · ${splitLabel(e.split)}</small>
+        <small class="muted">${fmtDate(e.date)} · płatnik: ${esc(nameOf(e.paidBy))} · ${splitLabel(e.split)}${e.eventId && byId(state.events, e.eventId) ? ` · 📅 ${esc(byId(state.events, e.eventId).title)}` : ''}</small>
         <select class="catpick" data-change="setCat" data-id="${e.id}" aria-label="Kategoria wydatku">${catOptions(e.categoryId)}</select>
       </div>
-      <div class="right"><b>${money(e.amount)}</b><div class="icons">${edit('editExp', e.id)}${del('delExp', e.id)}</div></div>
+      <div class="right"><b>${money(e.amount)}</b><div class="icons">${photosButton(e)}${edit('editExp', e.id)}${del('delExp', e.id)}</div></div>
     </div>`;
   return `
     ${monthNav(ym, 'month')}
@@ -781,7 +924,7 @@ function viewSettings() {
     </section>`;
 }
 
-const VIEWS = { przeglad: viewDashboard, budzet: viewBudget, wykresy: viewCharts, kalendarz: viewCalendar, zobowiazania: viewLiabilities, ustawienia: viewSettings };
+const VIEWS = { przeglad: viewDashboard, budzet: viewBudget, wykresy: viewCharts, raport: viewReport, kalendarz: viewCalendar, zobowiazania: viewLiabilities, ustawienia: viewSettings };
 
 function render() {
   if (!ready) { renderGate(); return; }
@@ -881,6 +1024,7 @@ function expenseForm(item) {
       { name: 'date', label: 'Data', type: 'date', required: true },
       { name: 'amount', label: 'Kwota (zł)', type: 'number', min: 0.01, step: '0.01', required: true },
       { name: 'description', label: 'Opis (opcjonalnie)', type: 'text', placeholder: 'np. zakupy w Lidlu' },
+      { name: 'eventId', label: 'Płatność za wydarzenie z kalendarza (opcjonalnie)', type: 'select', options: [['', '— nie dotyczy —'], ...eventOpts(item)] },
       { name: 'categoryId', label: 'Kategoria', type: 'select', options: [['', '❔ Bez kategorii'], ...catOpts()], required: false },
       { name: 'paidBy', label: 'Kto zapłacił', type: 'select', options: ownerOpts(), required: true },
       { name: 'split', label: 'Rozliczenie', type: 'select', options: splitOpts },
@@ -888,20 +1032,49 @@ function expenseForm(item) {
     onOpen: (form) => {
       // Podpowiedź kategorii: działa, dopóki użytkownik sam nie wybierze kategorii
       const desc = form.elements.description, cat = form.elements.categoryId;
+      const ev = form.elements.eventId;
       const hint = document.createElement('small');
       hint.className = 'hint';
       desc.closest('label').after(hint);
+      const evHint = document.createElement('small');
+      evHint.className = 'hint';
+      ev.closest('label').after(evHint);
       let touched = !!item;
+      let evTouched = !!item?.eventId;
       cat.addEventListener('change', () => { touched = true; hint.textContent = ''; });
+      ev.addEventListener('change', () => { evTouched = true; evHint.textContent = ''; });
       desc.addEventListener('input', () => {
-        if (touched) return;
-        const sid = suggestCategory(desc.value);
-        if (sid) { cat.value = sid; hint.textContent = `Podpowiedź: ${catInfo(sid).name} (zmień, jeśli to nie to)`; }
-        else hint.textContent = '';
+        if (!touched) {
+          const sid = suggestCategory(desc.value);
+          if (sid) { cat.value = sid; hint.textContent = `Podpowiedź: ${catInfo(sid).name} (zmień, jeśli to nie to)`; }
+          else hint.textContent = '';
+        }
+        // Ten sam opis co otwarte wydarzenie: podpowiadamy powiązanie, żeby nie zapłacić dwa razy
+        if (!evTouched) {
+          const m = openEvents().find((x) => x.title.trim().toLowerCase() === desc.value.trim().toLowerCase());
+          if (m) { ev.value = m.id; evHint.textContent = `To wygląda na płatność za „${m.title}”. Wydarzenie zostanie oznaczone jako opłacone.`; }
+          else evHint.textContent = '';
+        }
       });
     },
-    onSave: (v) => saveItem('expenses', item, v),
+    onSave: (v) => {
+      const newId = v.eventId || undefined;
+      const oldId = item?.eventId;
+      v.eventId = newId;
+      // Zmiana powiązania: stare wydarzenie wraca do planu, nowe zostaje opłacone
+      if (oldId && oldId !== newId) { const old = byId(state.events, oldId); if (old) reopenEvent(old); }
+      if (newId && newId !== oldId) { const ne = byId(state.events, newId); if (ne) settleEvent(ne); }
+      saveItem('expenses', item, v);
+    },
   });
+}
+
+// Wydarzenia, które można opłacić tym wydatkiem: otwarte plus to, które ten wydatek już opłaca
+function eventOpts(item) {
+  return state.events
+    .filter((e) => !e.paid || e.id === item?.eventId)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((e) => [e.id, `${e.title} · ${fmtDate(e.date)} · ${money(e.amount)}`]);
 }
 
 function eventForm(item, date) {
@@ -946,12 +1119,24 @@ function liabForm(item) {
 }
 
 /* ===== Akcje ===== */
+// Wydarzenie opłacone (przyciskiem albo wydatkiem): jednorazowe znika z planu, cykliczne przechodzi na kolejny rok
+function settleEvent(ev) {
+  if (ev.repeat === 'yearly') ev.date = addYears(ev.date, 1);
+  else ev.paid = true;
+  ev.updatedAt = now();
+}
+// Płatność usunięta albo odpięta: wydarzenie wraca do planu, więc wraca też rezerwa
+function reopenEvent(ev) {
+  if (ev.repeat === 'yearly') ev.date = addYears(ev.date, -1);
+  else ev.paid = false;
+  ev.updatedAt = now();
+}
+
 function payEvent(id) {
   const ev = byId(state.events, id);
   if (!ev) return;
-  state.expenses.push({ id: uid(), date: today(), amount: Number(ev.amount), categoryId: ev.categoryId, description: ev.title, paidBy: ev.paidBy, split: ev.split, updatedAt: now() });
-  if (ev.repeat === 'yearly') setField('events', id, { date: addYears(ev.date, 1) });
-  else setField('events', id, { paid: true });
+  state.expenses.push({ id: uid(), date: today(), amount: Number(ev.amount), categoryId: ev.categoryId, description: ev.title, paidBy: ev.paidBy, split: ev.split, eventId: ev.id, updatedAt: now() });
+  settleEvent(ev);
   toast('Dodano do budżetu jako wydatek ✔');
   commit();
 }
@@ -1034,6 +1219,36 @@ const actions = {
   calNext: () => { ui.cal = addYM(ui.cal, 1); render(); },
   calNow: () => { ui.cal = ymOf(today()); render(); },
 
+  repPrev: () => { ui.report = addYM(ui.report, -1); render(); },
+  repNext: () => { ui.report = addYM(ui.report, 1); render(); },
+  repNow: () => { ui.report = ymOf(today()); render(); },
+  openReport: (_id, el) => { ui.report = el.dataset.month; markReportSeen(el.dataset.month); location.hash = 'raport'; render(); },
+  dismissReport: (_id, el) => { markReportSeen(el.dataset.month); render(); },
+  printReport: () => window.print(),
+
+  photos: (id) => openPhotos(id),
+  closePhotos: () => $('#photoDlg').close(),
+  scanPhoto: (_id, el) => scanPhoto(el.dataset.pid),
+  ocrAdd: () => { if (ocrState) { ocrState.rows.push({ name: '', amount: 0 }); drawOcrPanel(); } },
+  ocrDel: (_id, el) => { if (ocrState) { ocrState.rows.splice(Number(el.dataset.i), 1); drawOcrPanel(); } },
+  ocrSave: () => ocrSave(),
+  ocrCancel: () => { ocrState = null; $('#ocrPanel').innerHTML = ''; },
+  delItem: (id) => {
+    if (!confirm('Usunąć ten produkt?')) return;
+    deleteRecord('items', id);
+    commit();
+    drawPhotos();
+  },
+  delPhoto: async (id, el) => {
+    if (!confirm('Usunąć to zdjęcie?')) return;
+    const pid = el.dataset.pid;
+    deleteRecord('photos', pid);
+    state.items.filter((i) => i.photoId === pid).forEach((i) => deleteRecord('items', i.id));
+    await dropPhotos([pid]);
+    commit();
+    await drawPhotos();
+  },
+
   addIncome: () => incomeForm(),
   editIncome: (id) => incomeForm(byId(state.incomes, id)),
   delIncome: (id) => removeItem('incomes', id, 'Usunąć ten dochód?'),
@@ -1050,7 +1265,18 @@ const actions = {
 
   addExp: () => expenseForm(),
   editExp: (id) => expenseForm(byId(state.expenses, id)),
-  delExp: (id) => removeItem('expenses', id, 'Usunąć ten wydatek?'),
+  delExp: (id) => {
+    const e = byId(state.expenses, id);
+    if (!e || !confirm('Usunąć ten wydatek?')) return;
+    const pids = photosOf(id).map((p) => p.id);
+    const linked = e.eventId ? byId(state.events, e.eventId) : null;
+    deleteRecord('expenses', id);
+    if (linked) reopenEvent(linked);
+    pids.forEach((pid) => deleteRecord('photos', pid));
+    state.items.filter((i) => i.expenseId === id).forEach((i) => deleteRecord('items', i.id));
+    dropPhotos(pids);
+    commit();
+  },
 
   addEvent: () => eventForm(),
   addEventOn: (_id, el) => eventForm(undefined, el.dataset.date),
@@ -1104,6 +1330,7 @@ document.addEventListener('change', (e) => {
   const change = t.dataset?.change;
   if (change === 'setCat') { setField('expenses', t.dataset.id, { categoryId: t.value }); commit(); return; }
   if (change === 'catFilter') { ui.catFilter = t.value; render(); return; }
+  if (change === 'ocr') { ocrEdit(t.dataset.i, t.dataset.f, t.value); return; }
   const k = t.dataset?.name;
   if (k) { state.names[k] = t.value.trim() || state.names[k]; state.namesAt = now(); commit(); }
 });
@@ -1195,6 +1422,75 @@ $$;
 
 grant execute on function public.budget_pull(text) to anon, authenticated;
 grant execute on function public.budget_push(text, bigint, jsonb) to anon, authenticated;
+
+-- Zdjęcia zakupów: zapisywane osobno, raz, już zaszyfrowane po stronie aplikacji
+create table if not exists public.budget_photos (
+  hid        text        not null,
+  pid        text        not null,
+  data       text        not null,
+  created_at timestamptz not null default now(),
+  primary key (hid, pid)
+);
+
+alter table public.budget_photos enable row level security;
+
+create or replace function public.budget_put_photo(hid text, pid text, data text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if char_length(hid) < 16 or char_length(pid) < 8 then
+    raise exception 'invalid id';
+  end if;
+  if char_length(data) > 3000000 then
+    raise exception 'photo too large';
+  end if;
+  insert into public.budget_photos as bp (hid, pid, data)
+  values (budget_put_photo.hid, budget_put_photo.pid, budget_put_photo.data)
+  on conflict on constraint budget_photos_pkey do update set data = excluded.data;
+  return true;
+end;
+$$;
+
+create or replace function public.budget_get_photo(hid text, pid text)
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  d text;
+begin
+  if char_length(hid) < 16 or char_length(pid) < 8 then
+    raise exception 'invalid id';
+  end if;
+  select bp.data into d from public.budget_photos bp
+   where bp.hid = budget_get_photo.hid and bp.pid = budget_get_photo.pid;
+  return d;
+end;
+$$;
+
+create or replace function public.budget_delete_photo(hid text, pid text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if char_length(hid) < 16 or char_length(pid) < 8 then
+    raise exception 'invalid id';
+  end if;
+  delete from public.budget_photos bp
+   where bp.hid = budget_delete_photo.hid and bp.pid = budget_delete_photo.pid;
+  return true;
+end;
+$$;
+
+grant execute on function public.budget_put_photo(text, text, text) to anon, authenticated;
+grant execute on function public.budget_get_photo(text, text) to anon, authenticated;
+grant execute on function public.budget_delete_photo(text, text) to anon, authenticated;
 `;
 
 const sync = { cfg: loadSyncCfg(), busy: false, again: false, error: '', last: null, timer: null };
@@ -1255,6 +1551,7 @@ async function syncNow() {
       ok = res.ok === true;
     }
     if (!ok) throw new Error('konflikt zapisów, spróbuj ponownie');
+    await syncPhotos();
     sync.last = new Date();
   } catch (err) {
     sync.error = err instanceof TypeError ? 'brak połączenia' : err.message;
@@ -1456,6 +1753,7 @@ async function lockApp() {
   if (!confirm('Zablokować aplikację na tym telefonie? Przy następnym otwarciu trzeba będzie podać hasło.')) return;
   await idbDelKey();
   CK = null;
+  forgetPhotoUrls();
   ready = false;
   state = defaults();
   gate = 'unlock';
@@ -1533,6 +1831,308 @@ async function init() {
   render();
   if (ready && sync.cfg) syncNow();
 }
+
+/* ===== Zdjęcia zakupów: szyfrowane, w IndexedDB, do chmury wysyłane raz ===== */
+const PHOTO_MAX = 10;          // zdjęć na jeden wydatek
+const photoUrls = new Map();   // pid -> adres podglądu (tylko w pamięci)
+let photoExp = null;           // id wydatku, którego zdjęcia są otwarte
+
+function openPhotoDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('budzet-photos', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('p');
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+  });
+}
+async function photoOp(mode, fn) {
+  const db = await openPhotoDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('p', mode);
+    const req = fn(tx.objectStore('p'));
+    tx.oncomplete = () => { db.close(); resolve(req.result); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+const photoGet = (pid) => photoOp('readonly', (s) => s.get(pid));
+const photoPut = (pid, rec) => photoOp('readwrite', (s) => s.put(rec, pid));
+const photoDel = (pid) => photoOp('readwrite', (s) => s.delete(pid));
+const photoKeys = () => photoOp('readonly', (s) => s.getAllKeys());
+
+// Zdjęcie zmniejszamy do ok. 1600 px w JPEG, żeby zajmowało kilkaset KB zamiast kilku MB
+async function compressPhoto(file) {
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * k);
+  c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  const blob = await new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('Nie udało się przetworzyć zdjęcia.'))), 'image/jpeg', 0.7));
+  return new Uint8Array(await blob.arrayBuffer());
+}
+async function storePhoto(pid, bytes) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, CK, bytes));
+  await photoPut(pid, { iv: b64(iv), ct: b64(ct), up: false });
+}
+async function photoUrl(pid) {
+  if (photoUrls.has(pid)) return photoUrls.get(pid);
+  const rec = await photoGet(pid);
+  if (!rec) return null;
+  const bytes = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(rec.iv) }, CK, unb64(rec.ct));
+  const url = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
+  photoUrls.set(pid, url);
+  return url;
+}
+function forgetPhotoUrls() {
+  for (const url of photoUrls.values()) URL.revokeObjectURL(url);
+  photoUrls.clear();
+}
+async function dropPhotos(pids) {
+  for (const pid of pids) {
+    if (photoUrls.has(pid)) { URL.revokeObjectURL(photoUrls.get(pid)); photoUrls.delete(pid); }
+    await photoDel(pid).catch(() => {});
+    if (sync.cfg && ready) rpc(sync.cfg, 'budget_delete_photo', { hid: sync.cfg.hid, pid }).catch(() => {});
+  }
+}
+
+// Zdjęcia to osobna kolekcja w danych (state.photos): usunięcia są znaczone tak jak inne rekordy
+const photosOf = (expId) => state.photos.filter((p) => p.expenseId === expId);
+const photosButton = (e) => {
+  const n = photosOf(e.id).length;
+  return `<button class="ghost small" data-action="photos" data-id="${e.id}" aria-label="Zdjęcia wydatku">📷${n ? ` ${n}` : ''}</button>`;
+};
+async function openPhotos(expId) {
+  photoExp = expId;
+  $('#photoDlg').showModal();
+  await drawPhotos();
+}
+async function drawPhotos() {
+  const e = byId(state.expenses, photoExp);
+  const box = $('#photoBody');
+  if (!e) { box.innerHTML = '<p class="muted">Ten wydatek już nie istnieje.</p>'; return; }
+  const pids = photosOf(e.id).map((p) => p.id);
+  box.innerHTML = `
+    <h2>📷 Zdjęcia: ${esc(e.description || catInfo(e.categoryId).name)}</h2>
+    <p class="muted">${money(e.amount)} · ${fmtDate(e.date)}. Dodaj paragon albo zdjęcie produktów z zakupów. Zdjęcia są szyfrowane i synchronizowane.</p>
+    <div class="gallery">${pids.length ? pids.map((pid) => `<figure>
+        <div class="ph" data-pid="${pid}">ładowanie…</div>
+        <button class="ghost small" data-action="scanPhoto" data-pid="${pid}">🔍 Odczytaj produkty</button>
+        <button class="ghost small danger" data-action="delPhoto" data-id="${e.id}" data-pid="${pid}">Usuń zdjęcie</button>
+      </figure>`).join('') : '<p class="muted">Brak zdjęć.</p>'}</div>
+    <div id="ocrPanel"></div>
+    ${itemsSection(e)}
+    <p class="err" id="photoErr" hidden></p>
+    <div class="actions">
+      <label class="primary small uplabel">+ Dodaj zdjęcie<input type="file" id="photoInput" accept="image/*" multiple hidden></label>
+      <button type="button" class="ghost" data-action="closePhotos">Zamknij</button>
+    </div>`;
+  box.querySelector('#photoInput').addEventListener('change', (ev) => addPhotos(ev.target));
+  for (const pid of pids) {
+    const url = await photoUrl(pid).catch(() => null);
+    const slot = box.querySelector(`.ph[data-pid="${pid}"]`);
+    if (!slot) continue;
+    if (url) slot.outerHTML = `<img src="${url}" alt="Zdjęcie zakupów">`;
+    else slot.textContent = 'Zdjęcie jeszcze niedostępne – zsynchronizuj telefon.';
+  }
+}
+// Wpis w wydatku dodajemy przed zapisem zdjęcia, żeby czyszczenie osieroconych zdjęć go nie usunęło
+function addPhotoRef(pid) {
+  if (!byId(state.expenses, photoExp)) throw new Error('Wydatek już nie istnieje.');
+  state.photos.push({ id: pid, expenseId: photoExp, updatedAt: now() });
+}
+function removePhotoRef(pid) {
+  deleteRecord('photos', pid);
+}
+async function addPhotos(input) {
+  const files = [...input.files];
+  input.value = '';
+  const err = $('#photoErr');
+  const fail = (m) => { err.textContent = m; err.hidden = false; };
+  err.hidden = true;
+  const room = PHOTO_MAX - photosOf(photoExp).length;
+  if (room <= 0) return fail(`Można dodać najwyżej ${PHOTO_MAX} zdjęć do jednego wydatku.`);
+  for (const file of files.slice(0, room)) {
+    const pid = randomHex(12);
+    try {
+      const bytes = await compressPhoto(file);
+      addPhotoRef(pid);
+      await storePhoto(pid, bytes);
+    } catch (ex) {
+      removePhotoRef(pid);
+      await photoDel(pid).catch(() => {});
+      fail(ex.message || 'Nie udało się dodać zdjęcia.');
+    }
+  }
+  commit();
+  await drawPhotos();
+}
+
+// Synchronizacja zdjęć: nowe wysyłamy raz, brakujące pobieramy z chmury, osierocone usuwamy lokalnie
+async function syncPhotos() {
+  const cfg = sync.cfg;
+  const refs = () => new Set(state.photos.map((p) => p.id));
+  for (const pid of refs()) {
+    const rec = await photoGet(pid);
+    if (rec && !rec.up) {
+      await rpc(cfg, 'budget_put_photo', { hid: cfg.hid, pid, data: JSON.stringify({ iv: rec.iv, ct: rec.ct }) });
+      await photoPut(pid, { ...rec, up: true });
+    }
+  }
+  for (const pid of refs()) {
+    if (await photoGet(pid)) continue;
+    const data = await rpc(cfg, 'budget_get_photo', { hid: cfg.hid, pid });
+    if (data) await photoPut(pid, { ...JSON.parse(data), up: true });
+  }
+  const live = refs();
+  for (const key of await photoKeys()) if (!live.has(key)) await photoDel(key);
+}
+
+/* ===== Produkty z paragonu: odczyt tekstu ze zdjęcia (OCR w przeglądarce, bez wysyłania zdjęć) ===== */
+// Wiersz paragonu to nazwa, a na końcu cena, np. "MLEKO 3,2% 1L      3,20 A"
+const RECEIPT_SKIP = /(SUMA|RAZEM|PTU|VAT|GOT[ÓO]WK|RESZT|KART[AYĄ]|NIP|PARAGON|FISKAL|KASA|NR\b|DATA|SPRZEDA|ZWROT|RABAT|PLN\b|TEL\b|ADRES|DZI[ĘE]K|PODATEK|BRUTTO|NETTO|WYDANO|KWOTA|ZAP[ŁL]ATA|BLIK)/i;
+function parseReceipt(text) {
+  const lines = String(text || '').split(/\r?\n/).map((l) => l.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const items = [];
+  let total = null;
+  for (const line of lines) {
+    const m = line.match(/^(.*?)[\s.:]*(-?\d{1,4}[.,]\d{2})\s*[A-Za-z*]?$/);
+    if (!m) continue;
+    const amount = Number(m[2].replace(',', '.'));
+    if (/(RAZEM|SUMA)/i.test(line)) { total = amount; continue; }
+    if (amount <= 0) continue; // rabaty i korekty pomijamy
+    let name = m[1].replace(/[|*_=~]+/g, ' ').replace(/\s+/g, ' ').trim();
+    name = name.replace(/\b\d+[.,]?\d*\s*[xX*]\s*\d+[.,]\d{2}\b/g, '').replace(/\s+/g, ' ').trim(); // "2 x 2,50" to tylko ilość
+    if (name.length < 3 || /^[\d\s.,%-]+$/.test(name) || RECEIPT_SKIP.test(name)) continue;
+    items.push({ name: name.slice(0, 80), amount });
+  }
+  return { items, total };
+}
+
+const OCR_BASE = new URL('vendor/tesseract/', location.href).href;
+let ocrWorkerP = null;   // jeden silnik na sesję, ładowany dopiero przy pierwszym odczycie
+let ocrState = null;     // { pid, rows: [{name, amount}], total, confidence }
+
+function loadOcrScript() {
+  if (window.Tesseract) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = OCR_BASE + 'tesseract.min.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('Nie udało się wczytać modułu odczytu. Sprawdź połączenie i spróbuj ponownie.'));
+    document.head.append(s);
+  });
+}
+function getOcrWorker() {
+  if (!ocrWorkerP) {
+    ocrWorkerP = loadOcrScript().then(() => Tesseract.createWorker('pol', 1, {
+      workerPath: OCR_BASE + 'worker.min.js',
+      corePath: OCR_BASE + 'core/',
+      langPath: OCR_BASE + 'lang/',
+    })).catch((ex) => { ocrWorkerP = null; throw ex; });
+  }
+  return ocrWorkerP;
+}
+async function photoBytes(pid) {
+  const rec = await photoGet(pid);
+  if (!rec) throw new Error('Zdjęcie nie jest dostępne na tym telefonie. Zsynchronizuj go.');
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(rec.iv) }, CK, unb64(rec.ct)));
+}
+// Zdjęcie powiększamy (do 2000 px), zamieniamy na szarość i podbijamy kontrast, żeby litery były wyraźniejsze
+async function prepareForOcr(bytes) {
+  const bmp = await createImageBitmap(new Blob([bytes], { type: 'image/jpeg' }));
+  const k = Math.min(2, 2000 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * k);
+  c.height = Math.round(bmp.height * k);
+  const g = c.getContext('2d');
+  g.drawImage(bmp, 0, 0, c.width, c.height);
+  const img = g.getImageData(0, 0, c.width, c.height);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const y = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+    const v = Math.max(0, Math.min(255, (y - 128) * 1.5 + 128));
+    d[i] = d[i + 1] = d[i + 2] = v;
+  }
+  g.putImageData(img, 0, 0);
+  return new Promise((res) => c.toBlob(res, 'image/png'));
+}
+
+async function scanPhoto(pid) {
+  const panel = $('#ocrPanel');
+  ocrState = null;
+  panel.innerHTML = '<div class="ocr"><p class="muted">Odczytuję tekst ze zdjęcia… to może potrwać kilka sekund.</p></div>';
+  try {
+    const blob = await prepareForOcr(await photoBytes(pid));
+    const worker = await getOcrWorker();
+    const { data } = await worker.recognize(blob);
+    const parsed = parseReceipt(data.text);
+    ocrState = { pid, rows: parsed.items, total: parsed.total, confidence: Math.round(data.confidence) };
+    drawOcrPanel();
+  } catch (ex) {
+    panel.innerHTML = `<p class="err">${esc(ex.message || 'Nie udało się odczytać zdjęcia.')}</p>`;
+  }
+}
+const ocrSumHtml = () => {
+  const total = ocrState.rows.reduce((a, r) => a + (Number(r.amount) || 0), 0);
+  return `Suma produktów: <b>${money(total)}</b>${ocrState.total !== null ? ` · z paragonu: <b>${money(ocrState.total)}</b>` : ''}`;
+};
+function drawOcrPanel() {
+  const panel = $('#ocrPanel');
+  if (!ocrState) { panel.innerHTML = ''; return; }
+  const warn = ocrState.confidence < 70 ? '<p><span class="tag warn">Odczyt może być niedokładny. Sprawdź każdą pozycję.</span></p>' : '';
+  panel.innerHTML = `<div class="ocr">
+    <h3>Rozpoznane produkty</h3>
+    ${warn}
+    <p class="muted">Popraw nazwy i ceny. Dopiero po zapisaniu produkty trafią do wydatku.</p>
+    ${ocrState.rows.length ? ocrState.rows.map((r, i) => `<div class="ocr-row">
+        <input data-change="ocr" data-i="${i}" data-f="name" value="${esc(r.name)}" aria-label="Nazwa produktu" maxlength="80">
+        <input data-change="ocr" data-i="${i}" data-f="amount" type="number" step="0.01" min="0" value="${r.amount}" aria-label="Cena">
+        <button class="ghost small danger" data-action="ocrDel" data-i="${i}" aria-label="Usuń wiersz">✕</button>
+      </div>`).join('') : '<p class="muted">Nie rozpoznano pozycji. Dodaj je ręcznie.</p>'}
+    <div class="actions"><button class="ghost small" data-action="ocrAdd">+ Produkt</button></div>
+    <p class="muted" id="ocrSum">${ocrSumHtml()}</p>
+    <div class="actions">
+      <button class="primary small" data-action="ocrSave">Zapisz produkty</button>
+      <button class="ghost small" data-action="ocrCancel">Anuluj</button>
+    </div>
+  </div>`;
+}
+function ocrEdit(i, f, val) {
+  const r = ocrState?.rows[Number(i)];
+  if (!r) return;
+  r[f] = f === 'amount' ? (Number(val) || 0) : val;
+  const el = $('#ocrSum');
+  if (el) el.innerHTML = ocrSumHtml();
+}
+function ocrSave() {
+  if (!ocrState) return;
+  const e = byId(state.expenses, photoExp);
+  if (!e) return;
+  const pid = ocrState.pid;
+  const rows = ocrState.rows
+    .map((r) => ({ name: String(r.name || '').trim().slice(0, 80), amount: Number(r.amount) || 0 }))
+    .filter((r) => r.name && r.amount > 0);
+  // ponowny odczyt tego zdjęcia zastępuje poprzednie produkty z niego
+  for (const it of state.items.filter((i) => i.photoId === pid)) deleteRecord('items', it.id);
+  for (const r of rows) state.items.push({ id: uid(), expenseId: e.id, photoId: pid, name: r.name, amount: r.amount, updatedAt: now() });
+  ocrState = null;
+  commit();
+  drawPhotos();
+}
+const itemsSection = (e) => {
+  const items = state.items.filter((i) => i.expenseId === e.id);
+  if (!items.length) return '<p class="muted">Brak zapisanych produktów. Użyj „Odczytaj produkty” przy zdjęciu.</p>';
+  const total = items.reduce((a, i) => a + (Number(i.amount) || 0), 0);
+  const diff = Math.round((Number(e.amount) - total) * 100) / 100;
+  return `<h3>Produkty (${items.length})</h3>
+    <div class="items">${items.map((i) => `<div class="row">
+        <div class="grow"><span>${esc(i.name)}</span></div>
+        <div class="right"><b>${money(i.amount)}</b><button class="ghost small danger" data-action="delItem" data-id="${i.id}">Usuń</button></div>
+      </div>`).join('')}</div>
+    <p class="muted">Suma produktów: <b>${money(total)}</b> · kwota wydatku: <b>${money(e.amount)}</b>
+      ${Math.abs(diff) > 0.009 ? ` <span class="tag warn">różnica ${money(diff)}</span>` : ' <span class="ok">✓ zgadza się</span>'}</p>`;
+};
 
 let toastTimer;
 function toast(msg) {

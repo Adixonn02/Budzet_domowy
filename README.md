@@ -53,6 +53,24 @@ Ustawienia → **Eksportuj do pliku** tworzy kopię zaszyfrowaną osobnym hasłe
 
 Przechowuj kopie w bezpiecznym miejscu. Nawet zaszyfrowana kopia jest bezwartościowa bez hasła, więc zapisz i je.
 
+## Zdjęcia zakupów
+
+- Przy wydatku kliknij **📷** i dodaj zdjęcie paragonu albo produktów (do 10 zdjęć na wydatek).
+- Zdjęcia są zmniejszane do ok. 1600 px i szyfrowane tym samym kluczem co dane. Na telefonie są w IndexedDB, nie w zwykłych danych.
+- Synchronizacja: zdjęcie wysyła się do Supabase raz (osobna tabela `budget_photos`). Drugi telefon pobiera je, gdy zobaczy wydatek. Usunięcie zdjęcia lub wydatku usuwa je na obu telefonach.
+- Kopia zapasowa (plik eksportu) **nie zawiera zdjęć**. Na nowym telefonie zdjęcia pojawią się po synchronizacji.
+- **Jeśli Supabase skonfigurowaliście wcześniej,** uruchomcie ponownie cały `supabase/schema.sql` w SQL Editor. Nowe funkcje zdjęć nie zmieniają istniejących tabel.
+
+## Produkty z paragonu (odczyt ze zdjęcia)
+
+- W oknie zdjęć wydatku kliknij **🔍 Odczytaj produkty**. Aplikacja rozpoznaje tekst na zdjęciu i pokazuje listę: nazwa i cena.
+- **Sprawdź i popraw** każdą pozycję. Dopiero kliknięcie **Zapisz produkty** dodaje je do wydatku. Ponowny odczyt tego samego zdjęcia zastępuje poprzednie produkty.
+- Aplikacja porównuje sumę produktów z kwotą wydatku i pokazuje różnicę.
+- Odczyt działa **w telefonie**: zdjęcie nigdzie nie jest wysyłane. Silnik OCR (Tesseract) i polski model języka są w katalogu `vendor/tesseract/`, więc działają też bez internetu.
+- Pierwszy odczyt ładuje silnik (ok. 11 MB, zapamiętywane w pamięci podręcznej przeglądarki). Kolejne są szybsze.
+- Dokładność zależy od zdjęcia: płaski paragon, dobre światło i ostre litery dają najlepsze wyniki. Zawsze sprawdzaj wynik.
+- Produkty synchronizują się między telefonami jak reszta danych.
+
 ## Zakładki
 
 - **Przegląd** (ekran startowy): karta „Najbliższe 14 dni” z wydarzeniami i ratami z sumą, kwota „Do dyspozycji”, dochody, raty, limity, rezerwa na wydarzenia, budżet w miesiącu i rozliczenie wspólnych wydatków.
