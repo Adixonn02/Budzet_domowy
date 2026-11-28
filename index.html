@@ -753,7 +753,7 @@ function viewBudget() {
   const del = (act, id) => `<button class="ghost small danger" data-action="${act}" data-id="${id}">Usuń</button>`;
   const expRow = (e) => `<div class="row">
       <div class="grow"><b>${esc(e.description || catInfo(e.categoryId).name)}</b>
-        <small class="muted">${fmtDate(e.date)} · płatnik: ${esc(nameOf(e.paidBy))} · ${splitLabel(e.split)}</small>
+        <small class="muted">${fmtDate(e.date)} · płatnik: ${esc(nameOf(e.paidBy))} · ${splitLabel(e.split)}${e.eventId && byId(state.events, e.eventId) ? ` · 📅 ${esc(byId(state.events, e.eventId).title)}` : ''}</small>
         <select class="catpick" data-change="setCat" data-id="${e.id}" aria-label="Kategoria wydatku">${catOptions(e.categoryId)}</select>
       </div>
       <div class="right"><b>${money(e.amount)}</b><div class="icons">${photosButton(e)}${edit('editExp', e.id)}${del('delExp', e.id)}</div></div>
@@ -1024,6 +1024,7 @@ function expenseForm(item) {
       { name: 'date', label: 'Data', type: 'date', required: true },
       { name: 'amount', label: 'Kwota (zł)', type: 'number', min: 0.01, step: '0.01', required: true },
       { name: 'description', label: 'Opis (opcjonalnie)', type: 'text', placeholder: 'np. zakupy w Lidlu' },
+      { name: 'eventId', label: 'Płatność za wydarzenie z kalendarza (opcjonalnie)', type: 'select', options: [['', '— nie dotyczy —'], ...eventOpts(item)] },
       { name: 'categoryId', label: 'Kategoria', type: 'select', options: [['', '❔ Bez kategorii'], ...catOpts()], required: false },
       { name: 'paidBy', label: 'Kto zapłacił', type: 'select', options: ownerOpts(), required: true },
       { name: 'split', label: 'Rozliczenie', type: 'select', options: splitOpts },
@@ -1031,20 +1032,49 @@ function expenseForm(item) {
     onOpen: (form) => {
       // Podpowiedź kategorii: działa, dopóki użytkownik sam nie wybierze kategorii
       const desc = form.elements.description, cat = form.elements.categoryId;
+      const ev = form.elements.eventId;
       const hint = document.createElement('small');
       hint.className = 'hint';
       desc.closest('label').after(hint);
+      const evHint = document.createElement('small');
+      evHint.className = 'hint';
+      ev.closest('label').after(evHint);
       let touched = !!item;
+      let evTouched = !!item?.eventId;
       cat.addEventListener('change', () => { touched = true; hint.textContent = ''; });
+      ev.addEventListener('change', () => { evTouched = true; evHint.textContent = ''; });
       desc.addEventListener('input', () => {
-        if (touched) return;
-        const sid = suggestCategory(desc.value);
-        if (sid) { cat.value = sid; hint.textContent = `Podpowiedź: ${catInfo(sid).name} (zmień, jeśli to nie to)`; }
-        else hint.textContent = '';
+        if (!touched) {
+          const sid = suggestCategory(desc.value);
+          if (sid) { cat.value = sid; hint.textContent = `Podpowiedź: ${catInfo(sid).name} (zmień, jeśli to nie to)`; }
+          else hint.textContent = '';
+        }
+        // Ten sam opis co otwarte wydarzenie: podpowiadamy powiązanie, żeby nie zapłacić dwa razy
+        if (!evTouched) {
+          const m = openEvents().find((x) => x.title.trim().toLowerCase() === desc.value.trim().toLowerCase());
+          if (m) { ev.value = m.id; evHint.textContent = `To wygląda na płatność za „${m.title}”. Wydarzenie zostanie oznaczone jako opłacone.`; }
+          else evHint.textContent = '';
+        }
       });
     },
-    onSave: (v) => saveItem('expenses', item, v),
+    onSave: (v) => {
+      const newId = v.eventId || undefined;
+      const oldId = item?.eventId;
+      v.eventId = newId;
+      // Zmiana powiązania: stare wydarzenie wraca do planu, nowe zostaje opłacone
+      if (oldId && oldId !== newId) { const old = byId(state.events, oldId); if (old) reopenEvent(old); }
+      if (newId && newId !== oldId) { const ne = byId(state.events, newId); if (ne) settleEvent(ne); }
+      saveItem('expenses', item, v);
+    },
   });
+}
+
+// Wydarzenia, które można opłacić tym wydatkiem: otwarte plus to, które ten wydatek już opłaca
+function eventOpts(item) {
+  return state.events
+    .filter((e) => !e.paid || e.id === item?.eventId)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((e) => [e.id, `${e.title} · ${fmtDate(e.date)} · ${money(e.amount)}`]);
 }
 
 function eventForm(item, date) {
@@ -1089,12 +1119,24 @@ function liabForm(item) {
 }
 
 /* ===== Akcje ===== */
+// Wydarzenie opłacone (przyciskiem albo wydatkiem): jednorazowe znika z planu, cykliczne przechodzi na kolejny rok
+function settleEvent(ev) {
+  if (ev.repeat === 'yearly') ev.date = addYears(ev.date, 1);
+  else ev.paid = true;
+  ev.updatedAt = now();
+}
+// Płatność usunięta albo odpięta: wydarzenie wraca do planu, więc wraca też rezerwa
+function reopenEvent(ev) {
+  if (ev.repeat === 'yearly') ev.date = addYears(ev.date, -1);
+  else ev.paid = false;
+  ev.updatedAt = now();
+}
+
 function payEvent(id) {
   const ev = byId(state.events, id);
   if (!ev) return;
-  state.expenses.push({ id: uid(), date: today(), amount: Number(ev.amount), categoryId: ev.categoryId, description: ev.title, paidBy: ev.paidBy, split: ev.split, updatedAt: now() });
-  if (ev.repeat === 'yearly') setField('events', id, { date: addYears(ev.date, 1) });
-  else setField('events', id, { paid: true });
+  state.expenses.push({ id: uid(), date: today(), amount: Number(ev.amount), categoryId: ev.categoryId, description: ev.title, paidBy: ev.paidBy, split: ev.split, eventId: ev.id, updatedAt: now() });
+  settleEvent(ev);
   toast('Dodano do budżetu jako wydatek ✔');
   commit();
 }
@@ -1227,7 +1269,9 @@ const actions = {
     const e = byId(state.expenses, id);
     if (!e || !confirm('Usunąć ten wydatek?')) return;
     const pids = photosOf(id).map((p) => p.id);
+    const linked = e.eventId ? byId(state.events, e.eventId) : null;
     deleteRecord('expenses', id);
+    if (linked) reopenEvent(linked);
     pids.forEach((pid) => deleteRecord('photos', pid));
     state.items.filter((i) => i.expenseId === id).forEach((i) => deleteRecord('items', i.id));
     dropPhotos(pids);
